@@ -36,7 +36,15 @@ jobs:
       - name: Start server for tests
         run: |
           npm run server &
-          sleep 3
+          # Wait for server to be ready with retry
+          for i in {1..10}; do
+            if curl -sf http://localhost:8787/health > /dev/null 2>&1; then
+              echo "Server ready after $i attempts"
+              break
+            fi
+            echo "Waiting for server... (attempt $i)"
+            sleep 2
+          done
         env:
           NODE_ENV: test
 
@@ -67,6 +75,18 @@ jobs:
       - name: Test Docker image
         run: |
           docker run -d --name sns-ai-test -p 8787:8787 sns-ai:test
-          sleep 5
-          curl -f http://localhost:8787/health
-          docker stop sns-ai-test
+          # Wait for container to be ready
+          for i in {1..15}; do
+            if curl -sf http://localhost:8787/health > /dev/null 2>&1; then
+              echo "Container healthy after $i attempts"
+              docker stop sns-ai-test
+              exit 0
+            fi
+            echo "Waiting for container... (attempt $i)"
+            sleep 2
+          done
+          # If we get here, show container logs for debugging
+          echo "Container failed to become healthy, showing logs:"
+          docker logs sns-ai-test
+          docker stop sns-ai-test || true
+          exit 1
