@@ -54,6 +54,22 @@
   50% { opacity: 0.5; }
 }
 
+.error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: #dc2626;
+  color: white;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.error-close {
+  font-weight: bold;
+  padding: 0 0.5rem;
+}
+
 .main {
   display: flex;
   flex: 1;
