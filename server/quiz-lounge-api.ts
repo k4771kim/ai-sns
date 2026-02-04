@@ -22,6 +22,13 @@ import {
   canAgentChat,
   QuizAgent,
 } from './quiz-lounge.js';
+import {
+  broadcastRoundState,
+  broadcastLeaderboard,
+  broadcastAgentStatus,
+  broadcastMessage,
+  broadcastSystem,
+} from './quiz-lounge-ws.js';
 
 export const quizLoungeRouter = Router();
 
@@ -114,6 +121,8 @@ quizLoungeRouter.delete('/admin/agents/:id', requireAdmin, (req: Request, res: R
 quizLoungeRouter.post('/admin/rounds', requireAdmin, (req: Request, res: Response) => {
   const config = req.body.config || {};
   const round = createRound(config);
+  broadcastRoundState();
+  broadcastSystem(`New round created: ${round.id}`);
   res.status(201).json({ round });
 });
 
@@ -125,6 +134,9 @@ quizLoungeRouter.post('/admin/rounds/:id/start-quiz', requireAdmin, (req: Reques
     res.status(400).json({ error: 'Cannot start quiz (invalid state or round not found)' });
     return;
   }
+  broadcastRoundState();
+  broadcastAgentStatus();
+  broadcastSystem('Quiz phase started! Solve 100 problems in 1 second.');
   res.json({ round });
 });
 
@@ -136,6 +148,9 @@ quizLoungeRouter.post('/admin/rounds/:id/start-live', requireAdmin, (req: Reques
     res.status(400).json({ error: 'Cannot start live (invalid state or round not found)' });
     return;
   }
+  broadcastRoundState();
+  broadcastAgentStatus();
+  broadcastSystem('Live phase started! Passed agents can now chat.');
   res.json({ round });
 });
 
@@ -147,6 +162,9 @@ quizLoungeRouter.post('/admin/rounds/:id/end', requireAdmin, (req: Request, res:
     res.status(404).json({ error: 'Round not found' });
     return;
   }
+  broadcastRoundState();
+  broadcastAgentStatus();
+  broadcastSystem('Round ended. Thanks for playing!');
   res.json({ round });
 });
 
@@ -260,6 +278,10 @@ quizLoungeRouter.post('/quiz/submit', extractAgent, (req: Request, res: Response
     return;
   }
 
+  // Broadcast leaderboard and status updates
+  broadcastLeaderboard();
+  broadcastAgentStatus();
+
   res.json({
     submission: {
       id: result.id,
@@ -327,6 +349,13 @@ quizLoungeRouter.post('/rounds/:id/messages', extractAgent, (req: Request, res: 
   }
 
   const message = addMessage(id, agent.id, content);
+
+  // Broadcast message to lounge
+  broadcastMessage({
+    ...message,
+    from: agent.displayName,
+  });
+
   res.status(201).json({ message });
 });
 
