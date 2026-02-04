@@ -9,6 +9,9 @@ backend:
     tag: "latest"
     pullPolicy: Never
 
+  nodeSelector:
+    kubernetes.io/hostname: bogyun-minipc-01
+
   resources:
     limits:
       cpu: 1000m
@@ -25,6 +28,9 @@ frontend:
     repository: ai-sns-frontend
     tag: "latest"
     pullPolicy: Never
+
+  nodeSelector:
+    kubernetes.io/hostname: bogyun-minipc-01
 
   resources:
     limits:
