@@ -51,9 +51,16 @@ export interface Submission {
 export interface QuizMessage {
   id: string;
   roundId: string;
-  from: string;  // agentId or 'system'
+  room: string;   // room name (default: 'general')
+  from: string;   // agentId or 'system'
   content: string;
   timestamp: number;
+}
+
+export interface LoungeRoom {
+  name: string;
+  members: Set<string>;  // agent IDs
+  createdAt: number;
 }
 
 export interface QuizProblem {
@@ -80,6 +87,14 @@ export const quizAgents = new Map<string, QuizAgent>();
 export const rounds = new Map<string, Round>();
 export const submissions = new Map<string, Submission>();
 export const quizMessages: QuizMessage[] = [];
+export const loungeRooms = new Map<string, LoungeRoom>();
+
+// Initialize default room
+loungeRooms.set('general', {
+  name: 'general',
+  members: new Set(),
+  createdAt: Date.now(),
+});
 
 let currentRoundId: string | null = null;
 
@@ -337,13 +352,80 @@ export function getLeaderboard(roundId: string): LeaderboardEntry[] {
 }
 
 // =============================================================================
+// Room Management
+// =============================================================================
+
+export function joinRoom(roomName: string, agentId: string): LoungeRoom {
+  let room = loungeRooms.get(roomName);
+  if (!room) {
+    // Create room if it doesn't exist
+    room = {
+      name: roomName,
+      members: new Set(),
+      createdAt: Date.now(),
+    };
+    loungeRooms.set(roomName, room);
+  }
+  room.members.add(agentId);
+  return room;
+}
+
+export function leaveRoom(roomName: string, agentId: string): boolean {
+  const room = loungeRooms.get(roomName);
+  if (!room) return false;
+  room.members.delete(agentId);
+  // Don't delete 'general' room even if empty
+  if (room.members.size === 0 && roomName !== 'general') {
+    loungeRooms.delete(roomName);
+  }
+  return true;
+}
+
+export function leaveAllRooms(agentId: string): string[] {
+  const leftRooms: string[] = [];
+  for (const [name, room] of loungeRooms) {
+    if (room.members.has(agentId)) {
+      room.members.delete(agentId);
+      leftRooms.push(name);
+      if (room.members.size === 0 && name !== 'general') {
+        loungeRooms.delete(name);
+      }
+    }
+  }
+  return leftRooms;
+}
+
+export function getRoomMembers(roomName: string): string[] {
+  const room = loungeRooms.get(roomName);
+  return room ? Array.from(room.members) : [];
+}
+
+export function getAgentRooms(agentId: string): string[] {
+  const rooms: string[] = [];
+  for (const [name, room] of loungeRooms) {
+    if (room.members.has(agentId)) {
+      rooms.push(name);
+    }
+  }
+  return rooms;
+}
+
+export function listRooms(): Array<{ name: string; memberCount: number }> {
+  return Array.from(loungeRooms.values()).map(r => ({
+    name: r.name,
+    memberCount: r.members.size,
+  }));
+}
+
+// =============================================================================
 // Messages
 // =============================================================================
 
-export function addMessage(roundId: string, from: string, content: string): QuizMessage {
+export function addMessage(roundId: string, room: string, from: string, content: string): QuizMessage {
   const msg: QuizMessage = {
     id: crypto.randomUUID(),
     roundId,
+    room,
     from,
     content,
     timestamp: Date.now(),
@@ -352,9 +434,9 @@ export function addMessage(roundId: string, from: string, content: string): Quiz
   return msg;
 }
 
-export function getMessages(roundId: string, limit: number = 100): QuizMessage[] {
+export function getMessages(roundId: string, room?: string, limit: number = 100): QuizMessage[] {
   return quizMessages
-    .filter(m => m.roundId === roundId)
+    .filter(m => m.roundId === roundId && (!room || m.room === room))
     .slice(-limit);
 }
 

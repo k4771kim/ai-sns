@@ -14,6 +14,11 @@ import {
   canAgentChat,
   quizAgents,
   QuizAgent,
+  joinRoom,
+  leaveRoom,
+  leaveAllRooms,
+  getRoomMembers,
+  listRooms,
 } from './quiz-lounge.js';
 
 // =============================================================================
@@ -27,6 +32,7 @@ interface LoungeClient {
   role: ClientRole;
   agentId: string | null;
   agent: QuizAgent | null;
+  rooms: Set<string>;  // rooms this client has joined
 }
 
 // =============================================================================
@@ -119,6 +125,29 @@ export function broadcastSystem(content: string): void {
   });
 }
 
+export function broadcastToRoom(roomName: string, event: object, excludeAgentId?: string): void {
+  const payload = JSON.stringify(event);
+  for (const client of loungeClients) {
+    if (client.ws.readyState === WebSocket.OPEN) {
+      // Send to spectators (they see all rooms) and agents in this room
+      if (client.role === 'spectator' || client.rooms.has(roomName)) {
+        if (client.agentId !== excludeAgentId) {
+          client.ws.send(payload);
+        }
+      }
+    }
+  }
+}
+
+export function broadcastRoomList(): void {
+  const rooms = listRooms();
+  broadcastToLounge({
+    type: 'room_list',
+    rooms,
+    timestamp: Date.now(),
+  });
+}
+
 // =============================================================================
 // WebSocket Connection Handler
 // =============================================================================
@@ -160,17 +189,20 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
     role,
     agentId,
     agent,
+    rooms: new Set(),
   };
 
   loungeClients.add(client);
 
   // Send welcome message with current state
   const round = getCurrentRound();
+  const roomList = listRooms();
   ws.send(JSON.stringify({
     type: 'connected',
     role,
     agentId,
     displayName: agent?.displayName || null,
+    rooms: roomList,
     timestamp: Date.now(),
   }));
 
@@ -181,7 +213,7 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
       displayName: a.displayName,
       status: a.status,
     }));
-    const messages = getMessages(round.id, 50);
+    const messages = getMessages(round.id, undefined, 50);
 
     ws.send(JSON.stringify({
       type: 'round_state',
@@ -232,14 +264,27 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
   // Handle disconnect
   ws.on('close', () => {
     loungeClients.delete(client);
-    if (role === 'agent' && agent) {
+    if (role === 'agent' && agent && agentId) {
       console.log(`[Lounge] Agent disconnected: ${agent.displayName}`);
+      // Leave all rooms
+      const leftRooms = leaveAllRooms(agentId);
+      for (const roomName of leftRooms) {
+        broadcastToRoom(roomName, {
+          type: 'agent_left',
+          agentId,
+          displayName: agent.displayName,
+          room: roomName,
+          timestamp: Date.now(),
+        });
+      }
       // Update agent status
-      const a = quizAgents.get(agentId!);
+      const a = quizAgents.get(agentId);
       if (a && (a.status === 'chatting' || a.status === 'passed')) {
         a.status = 'disconnected';
         broadcastAgentStatus();
       }
+      // Broadcast updated room list
+      broadcastRoomList();
     } else {
       console.log(`[Lounge] Spectator disconnected`);
     }
@@ -255,7 +300,7 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
 // Agent Message Handler
 // =============================================================================
 
-function handleAgentMessage(client: LoungeClient, msg: { type: string; content?: string }): void {
+function handleAgentMessage(client: LoungeClient, msg: { type: string; room?: string; content?: string }): void {
   const { ws, agentId, agent } = client;
 
   if (!agentId || !agent) {
@@ -268,7 +313,104 @@ function handleAgentMessage(client: LoungeClient, msg: { type: string; content?:
   }
 
   switch (msg.type) {
-    case 'chat': {
+    case 'join': {
+      // Check if agent can chat (passed quiz)
+      if (!canAgentChat(agentId)) {
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: 'You must pass the quiz to join rooms',
+          timestamp: Date.now(),
+        }));
+        return;
+      }
+
+      const roomName = msg.room?.trim() || 'general';
+      if (roomName.length > 50) {
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: 'Room name too long (max 50 chars)',
+          timestamp: Date.now(),
+        }));
+        return;
+      }
+
+      // Join room
+      joinRoom(roomName, agentId);
+      client.rooms.add(roomName);
+
+      // Notify the agent
+      ws.send(JSON.stringify({
+        type: 'joined',
+        room: roomName,
+        members: getRoomMembers(roomName),
+        timestamp: Date.now(),
+      }));
+
+      // Broadcast to room
+      broadcastToRoom(roomName, {
+        type: 'agent_joined',
+        agentId,
+        displayName: agent.displayName,
+        room: roomName,
+        timestamp: Date.now(),
+      }, agentId);
+
+      // Broadcast updated room list
+      broadcastRoomList();
+
+      console.log(`[Lounge] ${agent.displayName} joined room: ${roomName}`);
+      break;
+    }
+
+    case 'leave': {
+      const roomName = msg.room?.trim();
+      if (!roomName) {
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: 'Room name required',
+          timestamp: Date.now(),
+        }));
+        return;
+      }
+
+      if (!client.rooms.has(roomName)) {
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: 'Not in that room',
+          timestamp: Date.now(),
+        }));
+        return;
+      }
+
+      // Leave room
+      leaveRoom(roomName, agentId);
+      client.rooms.delete(roomName);
+
+      // Notify the agent
+      ws.send(JSON.stringify({
+        type: 'left',
+        room: roomName,
+        timestamp: Date.now(),
+      }));
+
+      // Broadcast to room
+      broadcastToRoom(roomName, {
+        type: 'agent_left',
+        agentId,
+        displayName: agent.displayName,
+        room: roomName,
+        timestamp: Date.now(),
+      });
+
+      // Broadcast updated room list
+      broadcastRoomList();
+
+      console.log(`[Lounge] ${agent.displayName} left room: ${roomName}`);
+      break;
+    }
+
+    case 'chat':
+    case 'message': {
       const round = getCurrentRound();
       if (!round) {
         ws.send(JSON.stringify({
@@ -297,6 +439,16 @@ function handleAgentMessage(client: LoungeClient, msg: { type: string; content?:
         return;
       }
 
+      const roomName = msg.room?.trim() || 'general';
+      if (!client.rooms.has(roomName)) {
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: `Not in room "${roomName}". Join first.`,
+          timestamp: Date.now(),
+        }));
+        return;
+      }
+
       if (!msg.content || typeof msg.content !== 'string') {
         ws.send(JSON.stringify({
           type: 'error',
@@ -306,11 +458,15 @@ function handleAgentMessage(client: LoungeClient, msg: { type: string; content?:
         return;
       }
 
-      // Add and broadcast message
-      const message = addMessage(round.id, agentId, msg.content);
-      broadcastMessage({
-        ...message,
-        from: agent.displayName,  // Use display name for broadcast
+      // Add and broadcast message to room
+      const message = addMessage(round.id, roomName, agentId, msg.content);
+      broadcastToRoom(roomName, {
+        type: 'message',
+        message: {
+          ...message,
+          from: agent.displayName,  // Use display name for broadcast
+        },
+        timestamp: Date.now(),
       });
       break;
     }

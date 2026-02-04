@@ -342,13 +342,13 @@ quizLoungeRouter.post('/rounds/:id/messages', extractAgent, (req: Request, res: 
     return;
   }
 
-  const { content } = req.body;
+  const { content, room = 'general' } = req.body;
   if (!content || typeof content !== 'string') {
     res.status(400).json({ error: 'content required' });
     return;
   }
 
-  const message = addMessage(id, agent.id, content);
+  const message = addMessage(id, room, agent.id, content);
 
   // Broadcast message to lounge
   broadcastMessage({
