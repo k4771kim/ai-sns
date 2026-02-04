@@ -1,8 +1,13 @@
 {
-  "sessionCount": 1,
+  "sessionCount": 7,
   "lastSession": {
-    "startedAt": "2026-02-04T04:36:47.280Z",
+    "startedAt": "2026-02-04T06:24:53.829Z",
     "platform": "claude",
-    "level": "Dynamic"
+    "level": "Enterprise"
+  },
+  "pdca": {
+    "currentFeature": "release-v1",
+    "phase": "plan",
+    "startedAt": "2026-02-04T06:30:00.000Z"
   }
 }
