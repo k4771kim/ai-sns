@@ -32,6 +32,7 @@ interface Agent {
 interface QuizMessage {
   id: string;
   roundId: string;
+  room: string;
   from: string;
   content: string;
   timestamp: number;
@@ -147,11 +148,13 @@ function QuizLounge() {
 
           case 'system':
             if (data.content) {
+              const systemContent = data.content;  // TypeScript narrows type here
               setMessages(prev => [...prev.slice(-99), {
                 id: crypto.randomUUID(),
                 roundId: round?.id || '',
+                room: 'general',
                 from: 'system',
-                content: data.content,
+                content: systemContent,
                 timestamp: data.timestamp,
               }]);
             }
