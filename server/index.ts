@@ -7,6 +7,7 @@ import { URL } from 'url';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
+import { quizLoungeRouter } from './quiz-lounge-api.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -138,6 +139,9 @@ const rooms = new Map<string, Set<string>>();
 const app = express();
 app.use(cors({ origin: config.allowedOrigins }));
 app.use(express.json({ limit: '100kb' }));
+
+// Quiz Lounge API routes
+app.use('/api/lounge', quizLoungeRouter);
 
 // Serve static files in production
 const distPath = join(__dirname, '..', 'dist');
