@@ -4,6 +4,11 @@ import cors from 'cors';
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { URL } from 'url';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import { existsSync } from 'fs';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // =============================================================================
 // Configuration
@@ -133,6 +138,12 @@ const rooms = new Map<string, Set<string>>();
 const app = express();
 app.use(cors({ origin: config.allowedOrigins }));
 app.use(express.json({ limit: '100kb' }));
+
+// Serve static files in production
+const distPath = join(__dirname, '..', 'dist');
+if (config.nodeEnv === 'production' && existsSync(distPath)) {
+  app.use(express.static(distPath));
+}
 
 const server = createServer(app);
 const wss = new WebSocketServer({ server });
@@ -503,6 +514,13 @@ app.get('/health', (_req: Request, res: Response) => {
     env: config.nodeEnv,
   });
 });
+
+// SPA fallback - serve index.html for client-side routing (production only)
+if (config.nodeEnv === 'production' && existsSync(distPath)) {
+  app.get('*', (_req: Request, res: Response) => {
+    res.sendFile(join(distPath, 'index.html'));
+  });
+}
 
 // =============================================================================
 // Graceful shutdown

@@ -1,35 +1,37 @@
 # Dependencies
-node_modules/
+node_modules
 
-# Build outputs
-dist/
+# Build output (will be created in container)
+dist
 
 # Git
-.git/
+.git
 .gitignore
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-npm-debug.log*
-
-# Environment files
+# Environment (use docker env vars instead)
 .env
-.env.*
+.env.local
+.env.*.local
 
-# Helm charts (not needed in container)
-helm/
+# IDE
+.vscode
+.idea
+*.sw?
 
-# Docker files (not needed in container)
-Dockerfile*
-docker-compose*
-.dockerignore
+# AI tooling
+.claude
+.omc
+
+# Docs (not needed in container)
+README.md
+docs/
+
+# Tests (not needed in production)
+**/*.test.ts
+**/*.test.js
+**/*.spec.ts
+**/*.spec.js
+
+# CI/CD
+.github
+k8s
