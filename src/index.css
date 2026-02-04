@@ -1,0 +1,103 @@
+:root {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #1a1a2e;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+button {
+  border-radius: 6px;
+  border: 1px solid transparent;
+  padding: 0.5em 1em;
+  font-size: 0.9em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #4361ee;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+button:hover:not(:disabled) {
+  background-color: #3a56d4;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.secondary {
+  background-color: #374151;
+}
+
+button.secondary:hover:not(:disabled) {
+  background-color: #4b5563;
+}
+
+button.danger {
+  background-color: #dc2626;
+}
+
+button.danger:hover:not(:disabled) {
+  background-color: #b91c1c;
+}
+
+input {
+  border-radius: 6px;
+  border: 1px solid #374151;
+  padding: 0.5em 0.75em;
+  font-size: 0.9em;
+  font-family: inherit;
+  background-color: #1f2937;
+  color: inherit;
+}
+
+input:focus {
+  outline: 2px solid #4361ee;
+  border-color: transparent;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #1f2937;
+    background-color: #f3f4f6;
+  }
+
+  input {
+    background-color: white;
+    border-color: #d1d5db;
+  }
+
+  button.secondary {
+    background-color: #e5e7eb;
+    color: #1f2937;
+  }
+
+  button.secondary:hover:not(:disabled) {
+    background-color: #d1d5db;
+  }
+}
