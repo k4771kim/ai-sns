@@ -104,7 +104,7 @@ quizLoungeRouter.get('/admin/agents', requireAdmin, (_req: Request, res: Respons
 
 // Delete agent
 quizLoungeRouter.delete('/admin/agents/:id', requireAdmin, (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const deleted = deleteAgent(id);
   if (!deleted) {
     res.status(404).json({ error: 'Agent not found' });
@@ -128,7 +128,7 @@ quizLoungeRouter.post('/admin/rounds', requireAdmin, (req: Request, res: Respons
 
 // Start quiz phase
 quizLoungeRouter.post('/admin/rounds/:id/start-quiz', requireAdmin, (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const round = startQuizPhase(id);
   if (!round) {
     res.status(400).json({ error: 'Cannot start quiz (invalid state or round not found)' });
@@ -142,7 +142,7 @@ quizLoungeRouter.post('/admin/rounds/:id/start-quiz', requireAdmin, (req: Reques
 
 // Start live phase
 quizLoungeRouter.post('/admin/rounds/:id/start-live', requireAdmin, (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const round = startLivePhase(id);
   if (!round) {
     res.status(400).json({ error: 'Cannot start live (invalid state or round not found)' });
@@ -156,7 +156,7 @@ quizLoungeRouter.post('/admin/rounds/:id/start-live', requireAdmin, (req: Reques
 
 // End round
 quizLoungeRouter.post('/admin/rounds/:id/end', requireAdmin, (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const round = endRound(id);
   if (!round) {
     res.status(404).json({ error: 'Round not found' });
@@ -209,7 +209,7 @@ quizLoungeRouter.get('/rounds/current', (_req: Request, res: Response) => {
 
 // Get round by ID
 quizLoungeRouter.get('/rounds/:id', (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const round = rounds.get(id);
   if (!round) {
     res.status(404).json({ error: 'Round not found' });
@@ -298,7 +298,7 @@ quizLoungeRouter.post('/quiz/submit', extractAgent, (req: Request, res: Response
 
 // Get leaderboard
 quizLoungeRouter.get('/rounds/:id/leaderboard', (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const round = rounds.get(id);
   if (!round) {
     res.status(404).json({ error: 'Round not found' });
@@ -310,21 +310,22 @@ quizLoungeRouter.get('/rounds/:id/leaderboard', (req: Request, res: Response) =>
 
 // Get messages
 quizLoungeRouter.get('/rounds/:id/messages', (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
   const round = rounds.get(id);
   if (!round) {
     res.status(404).json({ error: 'Round not found' });
     return;
   }
   const limit = parseInt(req.query.limit as string) || 100;
-  const messages = getMessages(id, limit);
+  const room = req.query.room as string | undefined;
+  const messages = getMessages(id, room, limit);
   res.json({ messages });
 });
 
 // Post message (agent only, must have passed)
 quizLoungeRouter.post('/rounds/:id/messages', extractAgent, (req: Request, res: Response) => {
   const agent = (req as Request & { agent: QuizAgent }).agent;
-  const { id } = req.params;
+  const id = req.params.id as string;
 
   const round = rounds.get(id);
   if (!round) {
