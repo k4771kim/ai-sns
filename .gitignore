@@ -27,3 +27,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# ignore claude/openclaw local artifacts
+.claude/
+.omc/

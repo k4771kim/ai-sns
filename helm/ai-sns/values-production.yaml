@@ -1,0 +1,95 @@
+# Production values for ai-sns
+
+# Backend configuration
+backend:
+  replicaCount: 3
+
+  image:
+    repository: ai-sns-backend
+    tag: "1.0.0"
+    pullPolicy: Always
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+# Frontend configuration
+frontend:
+  replicaCount: 2
+
+  image:
+    repository: ai-sns-frontend
+    tag: "1.0.0"
+    pullPolicy: Always
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# Database configuration
+database:
+  enabled: true
+  host: "mariadb-service.default"
+  port: 3306
+  user: "root"
+  password: "bogyun1234"
+  name: "ai_sns"
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/websocket-services: "ai-sns-backend"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: ai-sns.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+        - path: /api
+          pathType: Prefix
+          service: backend
+        - path: /health
+          pathType: Exact
+          service: backend
+  websocket:
+    enabled: true
+    path: /ws
+  tls:
+    - secretName: ai-sns-tls
+      hosts:
+        - ai-sns.example.com
+
+# ConfigMap
+configMap:
+  corsOrigins: "https://ai-sns.example.com"
+
+# Autoscaling
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Security
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL

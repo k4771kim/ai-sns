@@ -1,0 +1,67 @@
+{
+  "version": "2.0",
+  "lastUpdated": "2026-02-04T04:59:38.085Z",
+  "activeFeatures": [
+    "server",
+    "ai-sns"
+  ],
+  "primaryFeature": "server",
+  "features": {
+    "server": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-04T04:45:55.024Z",
+        "lastUpdated": "2026-02-04T04:45:55.024Z"
+      },
+      "lastFile": "/Users/gimbogyun/Develop/ai-sns/server/index.js"
+    },
+    "ai-sns": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-04T04:51:58.182Z",
+        "lastUpdated": "2026-02-04T04:59:38.085Z"
+      },
+      "lastFile": "/Users/gimbogyun/Develop/ai-sns/deploy.sh"
+    }
+  },
+  "pipeline": {
+    "currentPhase": 1,
+    "level": "Dynamic",
+    "phaseHistory": []
+  },
+  "session": {
+    "startedAt": "2026-02-04T04:36:47.277Z",
+    "onboardingCompleted": false,
+    "lastActivity": "2026-02-04T04:59:38.085Z"
+  },
+  "history": [
+    {
+      "timestamp": "2026-02-04T04:45:55.024Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-04T04:51:58.182Z",
+      "feature": "ai-sns",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-04T04:59:38.085Z",
+      "feature": "ai-sns",
+      "phase": "do",
+      "action": "updated"
+    }
+  ]
+}

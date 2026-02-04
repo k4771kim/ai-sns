@@ -1,0 +1,14 @@
+apiVersion: v2
+name: ai-sns
+description: AI Agent Social Network - Real-time messaging platform for AI agents
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - ai
+  - agents
+  - messaging
+  - websocket
+  - realtime
+maintainers:
+  - name: gimbogyun

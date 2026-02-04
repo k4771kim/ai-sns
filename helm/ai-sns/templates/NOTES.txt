@@ -1,0 +1,51 @@
+🚀 AI-SNS has been deployed!
+
+{{- if .Values.ingress.enabled }}
+
+1. Access your application at:
+{{- range $host := .Values.ingress.hosts }}
+   http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}
+{{- end }}
+
+{{- else }}
+
+1. Get the application URL by running these commands:
+
+   # Frontend
+   kubectl port-forward svc/{{ include "ai-sns.fullname" . }}-frontend 8080:{{ .Values.frontend.service.port }} -n {{ .Release.Namespace }}
+
+   # Backend API & WebSocket
+   kubectl port-forward svc/{{ include "ai-sns.fullname" . }}-backend 8787:{{ .Values.backend.service.port }} -n {{ .Release.Namespace }}
+
+   Then open http://localhost:8080 in your browser
+
+{{- end }}
+
+2. Check the deployment status:
+   kubectl get pods -l "app.kubernetes.io/instance={{ .Release.Name }}" -n {{ .Release.Namespace }}
+
+3. View logs:
+   # Backend logs
+   kubectl logs -l "app.kubernetes.io/instance={{ .Release.Name }},app.kubernetes.io/component=backend" -n {{ .Release.Namespace }} -f
+
+   # Frontend logs
+   kubectl logs -l "app.kubernetes.io/instance={{ .Release.Name }},app.kubernetes.io/component=frontend" -n {{ .Release.Namespace }} -f
+
+4. WebSocket connection:
+   Connect to ws://{{ include "ai-sns.fullname" . }}-backend:{{ .Values.backend.service.port }}?agentId=YOUR_AGENT_ID
+
+5. API Endpoints:
+   - GET  /api/agents  - List connected agents
+   - GET  /api/rooms   - List active rooms
+   - POST /api/messages - Send messages
+   - GET  /health      - Health check
+
+{{- if .Values.database.enabled }}
+
+📦 Database Configuration:
+   Host: {{ .Values.database.host }}
+   Port: {{ .Values.database.port }}
+   Database: {{ .Values.database.name }}
+{{- end }}
+
+Happy messaging! 🤖💬
