@@ -1,0 +1,144 @@
+# Default values for ai-sns
+
+# Global settings
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
+# Backend configuration
+backend:
+  replicaCount: 1
+
+  image:
+    repository: ai-sns-backend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 8787
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  # Environment variables
+  env:
+    PORT: "8787"
+    NODE_ENV: "production"
+    HEARTBEAT_INTERVAL: "30000"
+
+  # Pod annotations
+  podAnnotations: {}
+
+  # Node selector
+  nodeSelector: {}
+
+  # Tolerations
+  tolerations: []
+
+  # Affinity
+  affinity: {}
+
+# Frontend configuration
+frontend:
+  replicaCount: 1
+
+  image:
+    repository: ai-sns-frontend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 80
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Database configuration (for future use)
+database:
+  enabled: false
+  host: "mariadb-service.default"
+  port: 3306
+  user: "root"
+  password: "bogyun1234"
+  name: "ai_sns"
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/websocket-services: "ai-sns-backend"
+  hosts:
+    - host: ai-sns.local
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+        - path: /api
+          pathType: Prefix
+          service: backend
+        - path: /health
+          pathType: Exact
+          service: backend
+  websocket:
+    enabled: true
+    path: /ws
+  tls: []
+  #  - secretName: ai-sns-tls
+  #    hosts:
+  #      - ai-sns.local
+
+# ConfigMap for application configuration
+configMap:
+  # CORS allowed origins (comma-separated)
+  corsOrigins: "*"
+  # API base URL for frontend
+  apiBaseUrl: ""
+  # WebSocket URL for frontend
+  wsUrl: ""
+
+# ServiceAccount
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+
+# Container security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+
+# Autoscaling
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80

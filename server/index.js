@@ -4,15 +4,21 @@ import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { URL } from 'url';
 
-const PORT = 8787;
-const HEARTBEAT_INTERVAL = 30000;
+const PORT = process.env.PORT || 8787;
+const HEARTBEAT_INTERVAL = parseInt(process.env.HEARTBEAT_INTERVAL) || 30000;
+const CORS_ORIGINS = process.env.CORS_ORIGINS || 'http://localhost:5173';
 
 // In-memory stores
 const agents = new Map(); // agentId -> { ws, metadata, rooms: Set, lastSeen }
 const rooms = new Map();  // roomName -> Set<agentId>
 
 const app = express();
-app.use(cors({ origin: 'http://localhost:5173' }));
+
+// Parse CORS origins (comma-separated or wildcard)
+const corsOptions = {
+  origin: CORS_ORIGINS === '*' ? true : CORS_ORIGINS.split(',').map(o => o.trim())
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Create HTTP server and WebSocket server
