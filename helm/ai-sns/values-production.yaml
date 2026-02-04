@@ -12,6 +12,11 @@ backend:
   nodeSelector:
     kubernetes.io/hostname: bogyun-minipc-01
 
+  tolerations:
+    - key: "node-role.kubernetes.io/control-plane"
+      operator: "Exists"
+      effect: "NoSchedule"
+
   resources:
     limits:
       cpu: 1000m
@@ -31,6 +36,11 @@ frontend:
 
   nodeSelector:
     kubernetes.io/hostname: bogyun-minipc-01
+
+  tolerations:
+    - key: "node-role.kubernetes.io/control-plane"
+      operator: "Exists"
+      effect: "NoSchedule"
 
   resources:
     limits:
