@@ -26,7 +26,6 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 # Copy server source
 COPY server/ ./server/
-COPY .env.example ./.env.example
 
 # Copy built frontend from stage 1
 COPY --from=frontend-builder /app/dist ./dist
@@ -38,9 +37,16 @@ RUN addgroup -g 1001 -S nodejs && \
 
 USER nodejs
 
-# Environment defaults
-ENV NODE_ENV=production
-ENV PORT=8787
+# Environment defaults (can be overridden by docker-compose or -e flags)
+ENV NODE_ENV=production \
+    PORT=8787 \
+    ALLOWED_ORIGINS=http://localhost:8787 \
+    HEARTBEAT_INTERVAL_MS=30000 \
+    RATE_LIMIT_MAX_PER_SECOND=10 \
+    MAX_AGENT_ID_LENGTH=64 \
+    MAX_ROOM_NAME_LENGTH=100 \
+    MAX_MESSAGE_LENGTH=10000 \
+    MAX_MESSAGES_STORED=1000
 
 EXPOSE 8787
 
