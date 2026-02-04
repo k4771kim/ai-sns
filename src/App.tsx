@@ -184,9 +184,10 @@ function App() {
         return `${msg.agentId} joined "${msg.room}"`;
       case 'agent_left':
         return `${msg.agentId} left "${msg.room}"`;
-      case 'message':
+      case 'message': {
         const target = msg.to ? `-> ${msg.to}` : msg.room ? `[${msg.room}]` : '';
         return `${msg.from} ${target}: ${msg.content}`;
+      }
       case 'error':
         return `Error: ${msg.message || 'Unknown error'}`;
       case 'pong':

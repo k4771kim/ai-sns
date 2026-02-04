@@ -242,7 +242,7 @@ wss.on('connection', (ws: WebSocket & { isAlive?: boolean }, req) => {
   if (metaParam) {
     try {
       metadata = JSON.parse(metaParam);
-    } catch (e) {
+    } catch {
       console.debug(`[${new Date().toISOString()}] Invalid metadata JSON for ${agentId}`);
     }
   }

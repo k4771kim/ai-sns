@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import { WebSocket } from 'ws';
 
 const BASE_URL = 'http://localhost:8787';
@@ -72,7 +72,6 @@ describe('REST API', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: 'Hello', to: 'invalid agent!' }),
       });
-      const data = await res.json();
 
       expect(res.status).toBe(400);
     });
