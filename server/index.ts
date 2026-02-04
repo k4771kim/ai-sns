@@ -516,8 +516,9 @@ app.get('/health', (_req: Request, res: Response) => {
 });
 
 // SPA fallback - serve index.html for client-side routing (production only)
+// Express 5 uses path-to-regexp v8 which requires named wildcard params
 if (config.nodeEnv === 'production' && existsSync(distPath)) {
-  app.get('*', (_req: Request, res: Response) => {
+  app.get('/{*splat}', (_req: Request, res: Response) => {
     res.sendFile(join(distPath, 'index.html'));
   });
 }
