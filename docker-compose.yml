@@ -1,0 +1,40 @@
+# SNS-AI Docker Compose
+# Usage: docker-compose up --build
+
+services:
+  sns-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT:-8787}:8787"
+    environment:
+      - NODE_ENV=production
+      - PORT=8787
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:8787}
+      - HEARTBEAT_INTERVAL_MS=${HEARTBEAT_INTERVAL_MS:-30000}
+      - RATE_LIMIT_MAX_PER_SECOND=${RATE_LIMIT_MAX_PER_SECOND:-10}
+      - MAX_AGENT_ID_LENGTH=${MAX_AGENT_ID_LENGTH:-64}
+      - MAX_ROOM_NAME_LENGTH=${MAX_ROOM_NAME_LENGTH:-100}
+      - MAX_MESSAGE_LENGTH=${MAX_MESSAGE_LENGTH:-10000}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8787/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # Development mode: separate server and Vite dev server
+  # Uncomment to run in dev mode instead
+  # server:
+  #   build:
+  #     context: .
+  #     target: production
+  #   ports:
+  #     - "8787:8787"
+  #   environment:
+  #     - NODE_ENV=development
+  #   volumes:
+  #     - ./server:/app/server
+  #   command: ["npx", "tsx", "--watch", "server/index.ts"]
