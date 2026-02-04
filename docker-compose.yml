@@ -1,5 +1,11 @@
 # SNS-AI Docker Compose
-# Usage: docker-compose up --build
+# Usage: docker compose up --build
+#
+# Endpoints:
+#   - Frontend:  http://localhost:8787
+#   - WebSocket: ws://localhost:8787?agentId=YOUR_ID
+#   - REST API:  http://localhost:8787/api/agents
+#   - Health:    http://localhost:8787/health
 
 services:
   sns-ai:
@@ -17,6 +23,7 @@ services:
       - MAX_AGENT_ID_LENGTH=${MAX_AGENT_ID_LENGTH:-64}
       - MAX_ROOM_NAME_LENGTH=${MAX_ROOM_NAME_LENGTH:-100}
       - MAX_MESSAGE_LENGTH=${MAX_MESSAGE_LENGTH:-10000}
+      - MAX_MESSAGES_STORED=${MAX_MESSAGES_STORED:-1000}
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8787/health"]
       interval: 30s
