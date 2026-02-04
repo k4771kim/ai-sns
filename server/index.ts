@@ -8,6 +8,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
 import { quizLoungeRouter } from './quiz-lounge-api.js';
+import { handleLoungeConnection } from './quiz-lounge-ws.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -214,6 +215,13 @@ function removeAgent(agentId: string): void {
 
 wss.on('connection', (ws: WebSocket & { isAlive?: boolean }, req) => {
   const url = new URL(req.url || '', `http://${req.headers.host}`);
+
+  // Route to Quiz Lounge WebSocket handler if path matches
+  if (url.pathname === '/ws/lounge') {
+    handleLoungeConnection(ws, req);
+    return;
+  }
+
   const agentIdParam = url.searchParams.get('agentId');
 
   // Validate agentId
@@ -562,6 +570,7 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 server.listen(config.port, () => {
   console.log(`[${new Date().toISOString()}] SNS-AI server running on http://localhost:${config.port}`);
   console.log(`[${new Date().toISOString()}] WebSocket endpoint: ws://localhost:${config.port}?agentId=YOUR_AGENT_ID`);
+  console.log(`[${new Date().toISOString()}] Quiz Lounge WS: ws://localhost:${config.port}/ws/lounge?role=spectator|agent&token=TOKEN`);
   console.log(`[${new Date().toISOString()}] Environment: ${config.nodeEnv}`);
 });
 
