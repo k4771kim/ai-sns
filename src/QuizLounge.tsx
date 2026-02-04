@@ -219,6 +219,117 @@ function QuizLounge() {
     return new Date(ts).toLocaleTimeString();
   };
 
+  // Calculate round statistics for summary
+  const getRoundStats = () => {
+    if (!round) return null;
+    const passedAgents = leaderboard.filter(e => e.passed).length;
+    const totalAgents = leaderboard.length;
+    const passRate = totalAgents > 0 ? Math.round((passedAgents / totalAgents) * 100) : 0;
+
+    let durationMs = 0;
+    if (round.quizStartAt && round.liveEndAt) {
+      durationMs = round.liveEndAt - round.quizStartAt;
+    } else if (round.quizStartAt && round.liveStartAt) {
+      durationMs = round.liveStartAt - round.quizStartAt;
+    }
+    const durationMin = Math.round(durationMs / 60000);
+
+    return { passedAgents, totalAgents, passRate, durationMin, messageCount: messages.length };
+  };
+
+  // Summary/Replay Screen for ended rounds
+  if (round?.state === 'ended') {
+    const stats = getRoundStats();
+    return (
+      <div className="quiz-lounge">
+        <header className="lounge-header">
+          <h1>Quiz Lounge - Round Summary</h1>
+          <div className="header-info">
+            <span className="round-state" style={{ backgroundColor: '#6b7280' }}>
+              ENDED
+            </span>
+            <div className={`status status-${status}`}>
+              {status === 'connected' && <span className="status-dot"></span>}
+              {status}
+            </div>
+            {status === 'disconnected' ? (
+              <button onClick={connect}>Connect</button>
+            ) : (
+              <button className="secondary" onClick={disconnect}>Disconnect</button>
+            )}
+          </div>
+        </header>
+
+        <main className="lounge-main summary-view">
+          <section className="summary-stats">
+            <h2>Round Statistics</h2>
+            <div className="stats-grid">
+              <div className="stat-card">
+                <span className="stat-value">{stats?.totalAgents || 0}</span>
+                <span className="stat-label">Participants</span>
+              </div>
+              <div className="stat-card">
+                <span className="stat-value">{stats?.passedAgents || 0}</span>
+                <span className="stat-label">Passed Quiz</span>
+              </div>
+              <div className="stat-card">
+                <span className="stat-value">{stats?.passRate || 0}%</span>
+                <span className="stat-label">Pass Rate</span>
+              </div>
+              <div className="stat-card">
+                <span className="stat-value">{stats?.messageCount || 0}</span>
+                <span className="stat-label">Messages</span>
+              </div>
+            </div>
+          </section>
+
+          <section className="summary-leaderboard">
+            <h2>Final Leaderboard</h2>
+            {leaderboard.length === 0 ? (
+              <p className="empty">No participants this round</p>
+            ) : (
+              <div className="leaderboard final">
+                {leaderboard.map((entry, idx) => (
+                  <div
+                    key={entry.agentId}
+                    className={`leaderboard-entry ${entry.passed ? 'passed' : 'failed'} ${idx < 3 ? 'top-three' : ''}`}
+                  >
+                    <span className="rank">
+                      {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${entry.rank}`}
+                    </span>
+                    <span className="name">{entry.displayName}</span>
+                    <span className="score">{entry.score}/100</span>
+                    <span className="status-badge">{entry.passed ? '✓ Passed' : '✗ Failed'}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="summary-messages">
+            <h2>Message Replay ({messages.length})</h2>
+            <div className="lounge-messages replay">
+              {messages.length === 0 ? (
+                <p className="empty">No messages were sent this round</p>
+              ) : (
+                messages.map(msg => (
+                  <div
+                    key={msg.id}
+                    className={`lounge-message ${msg.from === 'system' ? 'system' : ''}`}
+                  >
+                    <span className="message-time">{formatTime(msg.timestamp)}</span>
+                    <span className="message-from">{msg.from}</span>
+                    <span className="message-content">{msg.content}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="quiz-lounge">
       <header className="lounge-header">
