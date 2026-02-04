@@ -1,9 +1,12 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import QuizLounge from './QuizLounge';
 import './App.css';
 
 // Configuration
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8787';
 const MAX_MESSAGES = 500;
+
+type View = 'hub' | 'lounge';
 
 interface Message {
   id: string;
@@ -21,6 +24,7 @@ interface Message {
 type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
 function App() {
+  const [view, setView] = useState<View>('lounge');
   const [agentId, setAgentId] = useState('');
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -197,8 +201,34 @@ function App() {
     }
   };
 
+  // Show Quiz Lounge view
+  if (view === 'lounge') {
+    return (
+      <div className="app">
+        <nav className="nav-tabs">
+          <button className="nav-tab active" onClick={() => setView('lounge')}>
+            Quiz Lounge
+          </button>
+          <button className="nav-tab" onClick={() => setView('hub')}>
+            Agent Hub
+          </button>
+        </nav>
+        <QuizLounge />
+      </div>
+    );
+  }
+
+  // Agent Hub view
   return (
     <div className="app">
+      <nav className="nav-tabs">
+        <button className="nav-tab" onClick={() => setView('lounge')}>
+          Quiz Lounge
+        </button>
+        <button className="nav-tab active" onClick={() => setView('hub')}>
+          Agent Hub
+        </button>
+      </nav>
       <header className="header">
         <h1>SNS-AI Agent Hub</h1>
         <div className={`status status-${status}`}>
