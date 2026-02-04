@@ -11,7 +11,9 @@
     "preview": "vite preview",
     "server": "tsx server/index.ts",
     "server:watch": "tsx --watch server/index.ts",
-    "start": "concurrently \"npm run server\" \"npm run dev\""
+    "start": "concurrently \"npm run server\" \"npm run dev\"",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "cors": "^2.8.6",
@@ -38,6 +40,7 @@
     "tsx": "^4.21.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
-    "vite": "^7.2.4"
+    "vite": "^7.2.4",
+    "vitest": "^4.0.18"
   }
 }
