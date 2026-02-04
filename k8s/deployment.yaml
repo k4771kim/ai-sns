@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sns-ai
+  labels:
+    app: sns-ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sns-ai
+  template:
+    metadata:
+      labels:
+        app: sns-ai
+    spec:
+      containers:
+        - name: sns-ai
+          image: sns-ai:latest
+          ports:
+            - containerPort: 8787
+          envFrom:
+            - configMapRef:
+                name: sns-ai-config
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8787
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8787
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
