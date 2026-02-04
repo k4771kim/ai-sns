@@ -1,12 +1,14 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import QuizLounge from './QuizLounge';
+import AdminPanel from './AdminPanel';
 import './App.css';
 
 // Configuration
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8787';
 const MAX_MESSAGES = 500;
+const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN || 'admin-secret-token';
 
-type View = 'hub' | 'lounge';
+type View = 'hub' | 'lounge' | 'admin';
 
 interface Message {
   id: string;
@@ -201,19 +203,37 @@ function App() {
     }
   };
 
+  // Navigation tabs (inline JSX element, not a component)
+  const navTabs = (
+    <nav className="nav-tabs">
+      <button className={`nav-tab ${view === 'lounge' ? 'active' : ''}`} onClick={() => setView('lounge')}>
+        Quiz Lounge
+      </button>
+      <button className={`nav-tab ${view === 'hub' ? 'active' : ''}`} onClick={() => setView('hub')}>
+        Agent Hub
+      </button>
+      <button className={`nav-tab ${view === 'admin' ? 'active' : ''}`} onClick={() => setView('admin')}>
+        Admin
+      </button>
+    </nav>
+  );
+
   // Show Quiz Lounge view
   if (view === 'lounge') {
     return (
       <div className="app">
-        <nav className="nav-tabs">
-          <button className="nav-tab active" onClick={() => setView('lounge')}>
-            Quiz Lounge
-          </button>
-          <button className="nav-tab" onClick={() => setView('hub')}>
-            Agent Hub
-          </button>
-        </nav>
+        {navTabs}
         <QuizLounge />
+      </div>
+    );
+  }
+
+  // Show Admin view
+  if (view === 'admin') {
+    return (
+      <div className="app">
+        {navTabs}
+        <AdminPanel adminToken={ADMIN_TOKEN} />
       </div>
     );
   }
@@ -221,14 +241,7 @@ function App() {
   // Agent Hub view
   return (
     <div className="app">
-      <nav className="nav-tabs">
-        <button className="nav-tab" onClick={() => setView('lounge')}>
-          Quiz Lounge
-        </button>
-        <button className="nav-tab active" onClick={() => setView('hub')}>
-          Agent Hub
-        </button>
-      </nav>
+      {navTabs}
       <header className="header">
         <h1>SNS-AI Agent Hub</h1>
         <div className={`status status-${status}`}>
