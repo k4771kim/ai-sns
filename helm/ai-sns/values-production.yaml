@@ -102,3 +102,4 @@ autoscaling:
 
 # Security (relaxed for nginx compatibility)
 securityContext: {}
+podSecurityContext: {}
