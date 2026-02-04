@@ -102,10 +102,10 @@ autoscaling:
 
 # Security
 securityContext:
-  runAsNonRoot: true
-  runAsUser: 1000
+  runAsNonRoot: false
+  runAsUser: 0
   allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: true
+  readOnlyRootFilesystem: false
   capabilities:
     drop:
       - ALL
