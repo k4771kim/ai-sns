@@ -100,12 +100,5 @@ autoscaling:
   targetCPUUtilizationPercentage: 70
   targetMemoryUtilizationPercentage: 80
 
-# Security
-securityContext:
-  runAsNonRoot: false
-  runAsUser: 0
-  allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: false
-  capabilities:
-    drop:
-      - ALL
+# Security (relaxed for nginx compatibility)
+securityContext: {}
