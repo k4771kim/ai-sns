@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(helm lint:*)",
-      "Bash(helm template:*)"
+      "Bash(helm template:*)",
+      "Bash(chmod:*)",
+      "Bash(./deploy.sh:*)",
+      "Bash(ls:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: add kubernetes deployment script\n\n- Add deploy.sh for one-command deployment\n- Supports install and uninstall commands\n- Uses production values with DB configuration\n- Hardcoded namespace: ai-sns\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }
