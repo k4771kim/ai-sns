@@ -31,3 +31,4 @@ dist-ssr
 # Claude Code / AI tooling
 .claude/
 .omc/
+server/dist/
