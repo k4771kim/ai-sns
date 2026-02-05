@@ -54,19 +54,24 @@ success "containerd import 완료"
 log "네임스페이스 생성: ${NAMESPACE}"
 kubectl create namespace ${NAMESPACE} 2>/dev/null || true
 
-# 4. Helm 배포 (프로덕션 설정)
+# 4. HPA 정리 (충돌 방지)
+log "HPA 정리..."
+kubectl delete hpa --all -n ${NAMESPACE} 2>/dev/null || true
+
+# 5. Helm 배포 (프로덕션 설정)
 log "Helm 배포 중..."
 helm upgrade --install ${RELEASE_NAME} ./helm/ai-sns \
     --namespace ${NAMESPACE} \
     -f ./helm/ai-sns/values-production.yaml \
     --set backend.image.tag=${TAG} \
-    --set frontend.image.tag=${TAG}
+    --set frontend.image.tag=${TAG} \
+    --force
 
 echo ""
 success "배포 완료!"
 echo ""
 
-# 5. 상태 확인
+# 6. 상태 확인
 log "Pod 상태:"
 kubectl get pods -n ${NAMESPACE}
 
