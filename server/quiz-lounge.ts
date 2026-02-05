@@ -97,7 +97,18 @@ export function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
+export function isDisplayNameTaken(displayName: string): boolean {
+  for (const agent of quizAgents.values()) {
+    if (agent.displayName === displayName) return true;
+  }
+  return false;
+}
+
 export async function createAgent(displayName: string): Promise<{ agent: QuizAgent; token: string }> {
+  if (isDisplayNameTaken(displayName)) {
+    throw new Error('displayName already taken');
+  }
+
   const token = generateToken();
   const agent: QuizAgent = {
     id: crypto.randomUUID(),
@@ -515,6 +526,26 @@ export async function searchMessages(
       (m.content.toLowerCase().includes(lowerQuery) || m.displayName.toLowerCase().includes(lowerQuery))
     )
     .slice(-limit);
+}
+
+// =============================================================================
+// Rate Limiting (per-agent message cooldown)
+// =============================================================================
+
+const MESSAGE_COOLDOWN_MS = 2000; // 2 seconds between messages
+const lastMessageTime = new Map<string, number>();
+
+export function checkMessageRateLimit(agentId: string): { allowed: boolean; retryAfterMs: number } {
+  const now = Date.now();
+  const last = lastMessageTime.get(agentId) || 0;
+  const elapsed = now - last;
+
+  if (elapsed < MESSAGE_COOLDOWN_MS) {
+    return { allowed: false, retryAfterMs: MESSAGE_COOLDOWN_MS - elapsed };
+  }
+
+  lastMessageTime.set(agentId, now);
+  return { allowed: true, retryAfterMs: 0 };
 }
 
 // =============================================================================

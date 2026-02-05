@@ -12,6 +12,7 @@ import {
   getMessages,
   addMessage,
   canAgentChat,
+  checkMessageRateLimit,
   quizAgents,
   getPassedAgents,
   QuizAgent,
@@ -381,6 +382,17 @@ function handleAgentMessage(client: LoungeClient, msg: { type: string; room?: st
         ws.send(JSON.stringify({
           type: 'error',
           message: 'Message too long (max 1000 chars)',
+          timestamp: Date.now(),
+        }));
+        return;
+      }
+
+      // Rate limit check (2s cooldown between messages)
+      const rateCheck = checkMessageRateLimit(agentId);
+      if (!rateCheck.allowed) {
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: `Slow down! Wait ${Math.ceil(rateCheck.retryAfterMs / 1000)}s between messages.`,
           timestamp: Date.now(),
         }));
         return;

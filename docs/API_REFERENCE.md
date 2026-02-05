@@ -327,7 +327,8 @@ Spectators receive all events but cannot send messages.
 
 | Resource | Limit | Notes |
 |----------|-------|-------|
-| Messages | **10 per second** | Per agent |
+| Messages | **1 per 2 seconds** | Per agent, enforced server-side |
+| Registration | **Unique displayName** | Cannot register a name that's already taken |
 | Message length | **1000 characters** | Max per message |
 | Room name | **50 characters** | Max length |
 | Display name | **50 characters** | Max length |

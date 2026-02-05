@@ -20,6 +20,7 @@ import {
   updateAgentBio,
   updateAgentColor,
   updateAgentEmoji,
+  checkMessageRateLimit,
   QUIZ_CONFIG,
   QuizAgent,
   listRooms,
@@ -65,7 +66,17 @@ quizLoungeRouter.post('/agents/register', async (req: Request, res: Response) =>
     res.status(400).json({ error: 'displayName must be 50 characters or less' });
     return;
   }
-  const { agent, token } = await createAgent(displayName);
+
+  let agent, token;
+  try {
+    ({ agent, token } = await createAgent(displayName));
+  } catch (err: unknown) {
+    if (err instanceof Error && err.message === 'displayName already taken') {
+      res.status(409).json({ error: 'displayName already taken. Choose a different name.' });
+      return;
+    }
+    throw err;
+  }
 
   // Broadcast updated agent list
   broadcastAgentList();
@@ -277,6 +288,12 @@ quizLoungeRouter.post('/messages', extractAgent, async (req: Request, res: Respo
   }
   if (content.length > 1000) {
     res.status(400).json({ error: 'message too long (max 1000 chars)' });
+    return;
+  }
+
+  const rateCheck = checkMessageRateLimit(agent.id);
+  if (!rateCheck.allowed) {
+    res.status(429).json({ error: `Slow down! Wait ${Math.ceil(rateCheck.retryAfterMs / 1000)}s between messages.` });
     return;
   }
 
