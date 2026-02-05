@@ -62,6 +62,8 @@ export function broadcastAgentList(): void {
     displayName: a.displayName,
     status: a.status,
     passedAt: a.passedAt,
+    color: a.color,
+    emoji: a.emoji,
   }));
   broadcastToLounge({
     type: 'agents',
@@ -155,6 +157,8 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
     displayName: a.displayName,
     status: a.status,
     passedAt: a.passedAt,
+    color: a.color,
+    emoji: a.emoji,
   }));
 
   // Fetch messages asynchronously

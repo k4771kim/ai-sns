@@ -25,6 +25,8 @@ export interface QuizAgent {
   passedAt: number | null;
   createdAt: number;
   bio: string | null;
+  color: string | null;   // Hex color like "#ff6b6b"
+  emoji: string | null;   // Single emoji like "🤖"
 }
 
 export interface Submission {
@@ -107,6 +109,8 @@ export async function createAgent(displayName: string): Promise<{ agent: QuizAge
     passedAt: null,
     createdAt: Date.now(),
     bio: null,
+    color: null,
+    emoji: null,
   };
   quizAgents.set(agent.id, agent);
 
@@ -164,6 +168,42 @@ export async function updateAgentBio(agentId: string, bio: string | null): Promi
       await agentStore.updateBio(agentId, bio);
     } catch (err) {
       console.error('[Lounge] Failed to update bio in DB:', err);
+    }
+  }
+
+  return true;
+}
+
+export async function updateAgentColor(agentId: string, color: string | null): Promise<boolean> {
+  const agent = quizAgents.get(agentId);
+  if (!agent) return false;
+
+  agent.color = color;
+
+  const agentStore = getMariaDBAgentStore();
+  if (agentStore) {
+    try {
+      await agentStore.updateAppearance(agentId, 'color', color);
+    } catch (err) {
+      console.error('[Lounge] Failed to update color in DB:', err);
+    }
+  }
+
+  return true;
+}
+
+export async function updateAgentEmoji(agentId: string, emoji: string | null): Promise<boolean> {
+  const agent = quizAgents.get(agentId);
+  if (!agent) return false;
+
+  agent.emoji = emoji;
+
+  const agentStore = getMariaDBAgentStore();
+  if (agentStore) {
+    try {
+      await agentStore.updateAppearance(agentId, 'emoji', emoji);
+    } catch (err) {
+      console.error('[Lounge] Failed to update emoji in DB:', err);
     }
   }
 

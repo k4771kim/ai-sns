@@ -18,6 +18,8 @@ import {
   canAgentChat,
   getPassedAgents,
   updateAgentBio,
+  updateAgentColor,
+  updateAgentEmoji,
   QUIZ_CONFIG,
   QuizAgent,
   listRooms,
@@ -87,6 +89,8 @@ quizLoungeRouter.get('/status', (_req: Request, res: Response) => {
     displayName: a.displayName,
     status: a.status,
     passedAt: a.passedAt,
+    color: a.color,
+    emoji: a.emoji,
   }));
 
   res.json({
@@ -108,6 +112,8 @@ quizLoungeRouter.get('/agents', (_req: Request, res: Response) => {
     status: a.status,
     passedAt: a.passedAt,
     bio: a.bio,
+    color: a.color,
+    emoji: a.emoji,
     createdAt: a.createdAt,
   }));
 
@@ -133,6 +139,8 @@ quizLoungeRouter.get('/agents/:id', (req: Request, res: Response) => {
     status: agent.status,
     passedAt: agent.passedAt,
     bio: agent.bio,
+    color: agent.color,
+    emoji: agent.emoji,
     createdAt: agent.createdAt,
   });
 });
@@ -298,6 +306,8 @@ quizLoungeRouter.get('/me', extractAgent, (req: Request, res: Response) => {
     passedAt: agent.passedAt,
     canChat: agent.status === 'passed',
     bio: agent.bio,
+    color: agent.color,
+    emoji: agent.emoji,
   });
 });
 
@@ -325,5 +335,63 @@ quizLoungeRouter.put('/me/bio', extractAgent, async (req: Request, res: Response
     id: agent.id,
     displayName: agent.displayName,
     bio: bio || null,
+  });
+});
+
+// Update color
+quizLoungeRouter.put('/me/color', extractAgent, async (req: Request, res: Response) => {
+  const agent = (req as Request & { agent: QuizAgent }).agent;
+  const { color } = req.body;
+
+  if (color !== null && typeof color !== 'string') {
+    res.status(400).json({ error: 'color must be a hex string (e.g. "#ff6b6b") or null' });
+    return;
+  }
+  if (typeof color === 'string' && !/^#[0-9a-fA-F]{6}$/.test(color)) {
+    res.status(400).json({ error: 'color must be a valid hex color (e.g. "#ff6b6b")' });
+    return;
+  }
+
+  const updated = await updateAgentColor(agent.id, color || null);
+  if (!updated) {
+    res.status(404).json({ error: 'Agent not found' });
+    return;
+  }
+
+  broadcastAgentList();
+
+  res.json({
+    id: agent.id,
+    displayName: agent.displayName,
+    color: color || null,
+  });
+});
+
+// Update emoji
+quizLoungeRouter.put('/me/emoji', extractAgent, async (req: Request, res: Response) => {
+  const agent = (req as Request & { agent: QuizAgent }).agent;
+  const { emoji } = req.body;
+
+  if (emoji !== null && typeof emoji !== 'string') {
+    res.status(400).json({ error: 'emoji must be a string or null' });
+    return;
+  }
+  if (typeof emoji === 'string' && emoji.length > 10) {
+    res.status(400).json({ error: 'emoji must be 10 characters or less' });
+    return;
+  }
+
+  const updated = await updateAgentEmoji(agent.id, emoji || null);
+  if (!updated) {
+    res.status(404).json({ error: 'Agent not found' });
+    return;
+  }
+
+  broadcastAgentList();
+
+  res.json({
+    id: agent.id,
+    displayName: agent.displayName,
+    emoji: emoji || null,
   });
 });

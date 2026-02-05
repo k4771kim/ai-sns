@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 
 // Configuration - auto-detect production
 const isProduction = window.location.hostname !== 'localhost';
@@ -11,6 +11,8 @@ interface Agent {
   displayName: string;
   status: 'idle' | 'passed';
   passedAt: number | null;
+  color: string | null;
+  emoji: string | null;
 }
 
 interface Room {
@@ -62,16 +64,25 @@ function QuizLounge() {
     return messages.length > 0 ? messages[0].id : null;
   }, [messages]);
 
-  // Scroll to bottom when new messages arrive (only for new messages, not loaded history)
+  // Auto-scroll to bottom: on initial load (instant) or when near bottom (smooth)
   useEffect(() => {
     if (isInitialLoad.current && messages.length > 0) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
       isInitialLoad.current = false;
+      return;
+    }
+    // Auto-scroll if user is near the bottom (within 150px)
+    const container = messagesContainerRef.current;
+    if (container && prevScrollHeight.current === 0) {
+      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+      if (distanceFromBottom < 150) {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
     }
   }, [messages]);
 
-  // Maintain scroll position when loading older messages
-  useEffect(() => {
+  // Maintain scroll position when loading older messages (useLayoutEffect prevents flash)
+  useLayoutEffect(() => {
     if (messagesContainerRef.current && prevScrollHeight.current > 0) {
       const newScrollHeight = messagesContainerRef.current.scrollHeight;
       const scrollDiff = newScrollHeight - prevScrollHeight.current;
@@ -166,13 +177,13 @@ function QuizLounge() {
 
           case 'message':
             if (data.message) {
-              setMessages(prev => [...prev.slice(-99), data.message!]);
+              setMessages(prev => [...prev, data.message!]);
             }
             break;
 
           case 'agent_joined':
             if (data.displayName && data.room) {
-              setMessages(prev => [...prev.slice(-99), {
+              setMessages(prev => [...prev, {
                 id: crypto.randomUUID(),
                 room: data.room!,
                 from: 'system',
@@ -185,7 +196,7 @@ function QuizLounge() {
 
           case 'agent_left':
             if (data.displayName && data.room) {
-              setMessages(prev => [...prev.slice(-99), {
+              setMessages(prev => [...prev, {
                 id: crypto.randomUUID(),
                 room: data.room!,
                 from: 'system',
@@ -254,6 +265,15 @@ function QuizLounge() {
     }
   };
 
+  // Build agent lookup by displayName for color/emoji in messages
+  const agentLookup = useMemo(() => {
+    const map = new Map<string, Agent>();
+    for (const a of agents) {
+      map.set(a.displayName, a);
+    }
+    return map;
+  }, [agents]);
+
   const totalAgents = agents.length;
   const passedAgents = agents.filter(a => a.status === 'passed').length;
   const activeRooms = rooms.filter(r => r.memberCount > 0).length;
@@ -300,8 +320,8 @@ function QuizLounge() {
               <div className="agents-list">
                 {agents.map(agent => (
                   <div key={agent.id} className={`agent-item ${agent.status}`}>
-                    <span className="agent-status-icon">{getStatusIcon(agent.status)}</span>
-                    <span className="agent-name">{agent.displayName}</span>
+                    <span className="agent-status-icon">{agent.emoji || getStatusIcon(agent.status)}</span>
+                    <span className="agent-name" style={agent.color ? { color: agent.color } : undefined}>{agent.displayName}</span>
                     <span className="agent-status-text">
                       {agent.status === 'passed' ? 'Can Chat' : 'Quiz Pending'}
                     </span>
@@ -345,17 +365,22 @@ function QuizLounge() {
                 No messages yet. Waiting for AI agents to pass the quiz and start chatting...
               </p>
             ) : (
-              messages.map(msg => (
-                <div
-                  key={msg.id}
-                  className={`lounge-message ${msg.from === 'system' ? 'system' : ''}`}
-                >
-                  <span className="message-time">{formatTime(msg.timestamp)}</span>
-                  <span className="message-from">{msg.displayName}</span>
-                  <span className="message-room">[#{msg.room}]</span>
-                  <span className="message-content">{msg.content}</span>
-                </div>
-              ))
+              messages.map(msg => {
+                const sender = agentLookup.get(msg.displayName);
+                return (
+                  <div
+                    key={msg.id}
+                    className={`lounge-message ${msg.from === 'system' ? 'system' : ''}`}
+                  >
+                    <span className="message-time">{formatTime(msg.timestamp)}</span>
+                    <span className="message-from" style={sender?.color ? { color: sender.color } : undefined}>
+                      {sender?.emoji ? `${sender.emoji} ` : ''}{msg.displayName}
+                    </span>
+                    <span className="message-room">[#{msg.room}]</span>
+                    <span className="message-content">{msg.content}</span>
+                  </div>
+                );
+              })
             )}
             <div ref={messagesEndRef} />
           </div>
