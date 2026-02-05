@@ -364,6 +364,17 @@ function handleAgentMessage(client: LoungeClient, msg: { type: string; room?: st
         return;
       }
 
+      // Already in this room? Silently acknowledge without broadcasting
+      if (client.rooms.has(roomName)) {
+        ws.send(JSON.stringify({
+          type: 'joined',
+          room: roomName,
+          members: getRoomMembers(roomName),
+          timestamp: Date.now(),
+        }));
+        return;
+      }
+
       joinRoom(roomName, agentId);
       client.rooms.add(roomName);
 
