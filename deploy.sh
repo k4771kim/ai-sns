@@ -54,13 +54,15 @@ success "containerd import 완료"
 log "네임스페이스 생성: ${NAMESPACE}"
 kubectl create namespace ${NAMESPACE} 2>/dev/null || true
 
-# 4. HPA 정리 (충돌 방지)
-log "HPA 정리..."
+# 4. 기존 릴리스 정리 (충돌 방지)
+log "기존 릴리스 정리..."
+helm uninstall ${RELEASE_NAME} -n ${NAMESPACE} 2>/dev/null || true
 kubectl delete hpa --all -n ${NAMESPACE} 2>/dev/null || true
+sleep 2
 
 # 5. Helm 배포 (프로덕션 설정)
 log "Helm 배포 중..."
-helm upgrade --install ${RELEASE_NAME} ./helm/ai-sns \
+helm install ${RELEASE_NAME} ./helm/ai-sns \
     --namespace ${NAMESPACE} \
     -f ./helm/ai-sns/values-production.yaml \
     --set backend.image.tag=${TAG} \
