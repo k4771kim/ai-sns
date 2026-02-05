@@ -1,5 +1,7 @@
 // =============================================================================
-// Quiz Lounge - WebSocket Handler
+// Quiz Lounge - WebSocket Handler (Simplified)
+// =============================================================================
+// Spectators watch, Agents chat (after passing quiz)
 // =============================================================================
 
 import { WebSocket } from 'ws';
@@ -7,13 +9,13 @@ import { IncomingMessage } from 'http';
 import { URL } from 'url';
 import {
   validateToken,
-  getCurrentRound,
-  getLeaderboard,
   getMessages,
   addMessage,
   canAgentChat,
   quizAgents,
+  getPassedAgents,
   QuizAgent,
+  QuizMessage,
   joinRoom,
   leaveRoom,
   leaveAllRooms,
@@ -32,7 +34,7 @@ interface LoungeClient {
   role: ClientRole;
   agentId: string | null;
   agent: QuizAgent | null;
-  rooms: Set<string>;  // rooms this client has joined
+  rooms: Set<string>;
 }
 
 // =============================================================================
@@ -45,82 +47,34 @@ const loungeClients = new Set<LoungeClient>();
 // Broadcast Functions
 // =============================================================================
 
-export function broadcastToLounge(event: object, filter?: (client: LoungeClient) => boolean): void {
+export function broadcastToLounge(event: object): void {
   const payload = JSON.stringify(event);
   for (const client of loungeClients) {
     if (client.ws.readyState === WebSocket.OPEN) {
-      if (!filter || filter(client)) {
-        client.ws.send(payload);
-      }
+      client.ws.send(payload);
     }
   }
 }
 
-export function broadcastRoundState(): void {
-  const round = getCurrentRound();
-  if (!round) return;
-
-  const leaderboard = getLeaderboard(round.id);
+export function broadcastAgentList(): void {
   const agents = Array.from(quizAgents.values()).map(a => ({
     id: a.id,
     displayName: a.displayName,
     status: a.status,
-  }));
-
-  broadcastToLounge({
-    type: 'round_state',
-    round: {
-      id: round.id,
-      state: round.state,
-      quizStartAt: round.quizStartAt,
-      quizEndAt: round.quizEndAt,
-      liveStartAt: round.liveStartAt,
-      liveEndAt: round.liveEndAt,
-    },
-    leaderboard,
-    agents,
-    timestamp: Date.now(),
-  });
-}
-
-export function broadcastLeaderboard(): void {
-  const round = getCurrentRound();
-  if (!round) return;
-
-  const leaderboard = getLeaderboard(round.id);
-  broadcastToLounge({
-    type: 'leaderboard',
-    roundId: round.id,
-    leaderboard,
-    timestamp: Date.now(),
-  });
-}
-
-export function broadcastAgentStatus(): void {
-  const agents = Array.from(quizAgents.values()).map(a => ({
-    id: a.id,
-    displayName: a.displayName,
-    status: a.status,
+    passedAt: a.passedAt,
   }));
   broadcastToLounge({
-    type: 'agent_status',
+    type: 'agents',
     agents,
+    passedCount: getPassedAgents().length,
     timestamp: Date.now(),
   });
 }
 
-export function broadcastMessage(message: { id: string; roundId: string; from: string; content: string; timestamp: number }): void {
+export function broadcastMessage(message: QuizMessage): void {
   broadcastToLounge({
     type: 'message',
     message,
-    timestamp: Date.now(),
-  });
-}
-
-export function broadcastSystem(content: string): void {
-  broadcastToLounge({
-    type: 'system',
-    content,
     timestamp: Date.now(),
   });
 }
@@ -195,42 +149,26 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
   loungeClients.add(client);
 
   // Send welcome message with current state
-  const round = getCurrentRound();
   const roomList = listRooms();
+  const agents = Array.from(quizAgents.values()).map(a => ({
+    id: a.id,
+    displayName: a.displayName,
+    status: a.status,
+    passedAt: a.passedAt,
+  }));
+  const messages = getMessages(undefined, 50);
+
   ws.send(JSON.stringify({
     type: 'connected',
     role,
     agentId,
     displayName: agent?.displayName || null,
+    canChat: agent ? agent.status === 'passed' : false,
     rooms: roomList,
+    agents,
+    messages,
     timestamp: Date.now(),
   }));
-
-  if (round) {
-    const leaderboard = getLeaderboard(round.id);
-    const agents = Array.from(quizAgents.values()).map(a => ({
-      id: a.id,
-      displayName: a.displayName,
-      status: a.status,
-    }));
-    const messages = getMessages(round.id, undefined, 50);
-
-    ws.send(JSON.stringify({
-      type: 'round_state',
-      round: {
-        id: round.id,
-        state: round.state,
-        quizStartAt: round.quizStartAt,
-        quizEndAt: round.quizEndAt,
-        liveStartAt: round.liveStartAt,
-        liveEndAt: round.liveEndAt,
-      },
-      leaderboard,
-      agents,
-      messages,
-      timestamp: Date.now(),
-    }));
-  }
 
   // Handle incoming messages
   ws.on('message', (data) => {
@@ -238,7 +176,7 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
     if (role === 'spectator') {
       ws.send(JSON.stringify({
         type: 'error',
-        message: 'Spectators cannot send messages',
+        message: 'Spectators can only watch',
         timestamp: Date.now(),
       }));
       return;
@@ -257,7 +195,6 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
       return;
     }
 
-    // Handle agent messages
     handleAgentMessage(client, msg);
   });
 
@@ -266,7 +203,6 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
     loungeClients.delete(client);
     if (role === 'agent' && agent && agentId) {
       console.log(`[Lounge] Agent disconnected: ${agent.displayName}`);
-      // Leave all rooms
       const leftRooms = leaveAllRooms(agentId);
       for (const roomName of leftRooms) {
         broadcastToRoom(roomName, {
@@ -277,13 +213,6 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
           timestamp: Date.now(),
         });
       }
-      // Update agent status
-      const a = quizAgents.get(agentId);
-      if (a && (a.status === 'chatting' || a.status === 'passed')) {
-        a.status = 'disconnected';
-        broadcastAgentStatus();
-      }
-      // Broadcast updated room list
       broadcastRoomList();
     } else {
       console.log(`[Lounge] Spectator disconnected`);
@@ -314,11 +243,10 @@ function handleAgentMessage(client: LoungeClient, msg: { type: string; room?: st
 
   switch (msg.type) {
     case 'join': {
-      // Check if agent can chat (passed quiz)
       if (!canAgentChat(agentId)) {
         ws.send(JSON.stringify({
           type: 'error',
-          message: 'You must pass the quiz to join rooms',
+          message: 'Pass the quiz first to join rooms',
           timestamp: Date.now(),
         }));
         return;
@@ -334,11 +262,9 @@ function handleAgentMessage(client: LoungeClient, msg: { type: string; room?: st
         return;
       }
 
-      // Join room
       joinRoom(roomName, agentId);
       client.rooms.add(roomName);
 
-      // Notify the agent
       ws.send(JSON.stringify({
         type: 'joined',
         room: roomName,
@@ -346,7 +272,6 @@ function handleAgentMessage(client: LoungeClient, msg: { type: string; room?: st
         timestamp: Date.now(),
       }));
 
-      // Broadcast to room
       broadcastToRoom(roomName, {
         type: 'agent_joined',
         agentId,
@@ -355,9 +280,7 @@ function handleAgentMessage(client: LoungeClient, msg: { type: string; room?: st
         timestamp: Date.now(),
       }, agentId);
 
-      // Broadcast updated room list
       broadcastRoomList();
-
       console.log(`[Lounge] ${agent.displayName} joined room: ${roomName}`);
       break;
     }
@@ -382,18 +305,15 @@ function handleAgentMessage(client: LoungeClient, msg: { type: string; room?: st
         return;
       }
 
-      // Leave room
       leaveRoom(roomName, agentId);
       client.rooms.delete(roomName);
 
-      // Notify the agent
       ws.send(JSON.stringify({
         type: 'left',
         room: roomName,
         timestamp: Date.now(),
       }));
 
-      // Broadcast to room
       broadcastToRoom(roomName, {
         type: 'agent_left',
         agentId,
@@ -402,38 +322,17 @@ function handleAgentMessage(client: LoungeClient, msg: { type: string; room?: st
         timestamp: Date.now(),
       });
 
-      // Broadcast updated room list
       broadcastRoomList();
-
       console.log(`[Lounge] ${agent.displayName} left room: ${roomName}`);
       break;
     }
 
     case 'chat':
     case 'message': {
-      const round = getCurrentRound();
-      if (!round) {
-        ws.send(JSON.stringify({
-          type: 'error',
-          message: 'No active round',
-          timestamp: Date.now(),
-        }));
-        return;
-      }
-
-      if (round.state !== 'live') {
-        ws.send(JSON.stringify({
-          type: 'error',
-          message: 'Chat only available during live phase',
-          timestamp: Date.now(),
-        }));
-        return;
-      }
-
       if (!canAgentChat(agentId)) {
         ws.send(JSON.stringify({
           type: 'error',
-          message: 'You must pass the quiz to chat',
+          message: 'Pass the quiz first to chat',
           timestamp: Date.now(),
         }));
         return;
@@ -458,14 +357,19 @@ function handleAgentMessage(client: LoungeClient, msg: { type: string; room?: st
         return;
       }
 
-      // Add and broadcast message to room
-      const message = addMessage(round.id, roomName, agentId, msg.content);
+      if (msg.content.length > 1000) {
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: 'Message too long (max 1000 chars)',
+          timestamp: Date.now(),
+        }));
+        return;
+      }
+
+      const message = addMessage(roomName, agentId, agent.displayName, msg.content);
       broadcastToRoom(roomName, {
         type: 'message',
-        message: {
-          ...message,
-          from: agent.displayName,  // Use display name for broadcast
-        },
+        message,
         timestamp: Date.now(),
       });
       break;
@@ -487,7 +391,7 @@ function handleAgentMessage(client: LoungeClient, msg: { type: string; room?: st
 }
 
 // =============================================================================
-// Get Connected Counts
+// Stats
 // =============================================================================
 
 export function getLoungeStats(): { spectators: number; agents: number } {

@@ -1,5 +1,8 @@
 // =============================================================================
-// Quiz Lounge - Data Models and Types
+// Quiz Lounge - Simplified: AI-only chat with quiz gate
+// =============================================================================
+// No rounds, no phases, no admin controls
+// Just: Register → Pass Quiz → Chat
 // =============================================================================
 
 import crypto from 'crypto';
@@ -8,41 +11,21 @@ import crypto from 'crypto';
 // Types
 // =============================================================================
 
-export type AgentStatus = 'idle' | 'solving' | 'passed' | 'chatting' | 'disconnected';
-export type RoundState = 'open' | 'quiz' | 'live' | 'ended';
+export type AgentStatus = 'idle' | 'passed';
 
 export interface QuizAgent {
   id: string;
   displayName: string;
   tokenHash: string;
   status: AgentStatus;
+  quizSeed: string;      // Each agent gets their own quiz
+  passedAt: number | null;
   createdAt: number;
-}
-
-export interface Round {
-  id: string;
-  state: RoundState;
-  quizSeed: string;
-  quizStartAt: number | null;
-  quizEndAt: number | null;
-  liveStartAt: number | null;
-  liveEndAt: number | null;
-  config: RoundConfig;
-  createdAt: number;
-}
-
-export interface RoundConfig {
-  quizDurationMs: number;      // Default: 1000 (1 second)
-  liveDurationMs: number;      // Default: 600000 (10 minutes)
-  passThreshold: number;       // Default: 95
-  questionCount: number;       // Default: 100
 }
 
 export interface Submission {
   id: string;
-  roundId: string;
   agentId: string;
-  answers: number[];
   score: number;
   passed: boolean;
   submittedAt: number;
@@ -50,16 +33,16 @@ export interface Submission {
 
 export interface QuizMessage {
   id: string;
-  roundId: string;
-  room: string;   // room name (default: 'general')
-  from: string;   // agentId or 'system'
+  room: string;
+  from: string;   // agentId
+  displayName: string;
   content: string;
   timestamp: number;
 }
 
 export interface LoungeRoom {
   name: string;
-  members: Set<string>;  // agent IDs
+  members: Set<string>;
   createdAt: number;
 }
 
@@ -70,21 +53,20 @@ export interface QuizProblem {
   answer: number;
 }
 
-export interface LeaderboardEntry {
-  agentId: string;
-  displayName: string;
-  score: number;
-  passed: boolean;
-  rank: number;
-  status: AgentStatus;
-}
+// =============================================================================
+// Configuration
+// =============================================================================
+
+export const QUIZ_CONFIG = {
+  questionCount: 100,
+  passThreshold: 95,
+};
 
 // =============================================================================
 // In-Memory Stores
 // =============================================================================
 
 export const quizAgents = new Map<string, QuizAgent>();
-export const rounds = new Map<string, Round>();
 export const submissions = new Map<string, Submission>();
 export const quizMessages: QuizMessage[] = [];
 export const loungeRooms = new Map<string, LoungeRoom>();
@@ -95,8 +77,6 @@ loungeRooms.set('general', {
   members: new Set(),
   createdAt: Date.now(),
 });
-
-let currentRoundId: string | null = null;
 
 // =============================================================================
 // Token Management
@@ -117,6 +97,8 @@ export function createAgent(displayName: string): { agent: QuizAgent; token: str
     displayName,
     tokenHash: hashToken(token),
     status: 'idle',
+    quizSeed: crypto.randomBytes(16).toString('hex'),
+    passedAt: null,
     createdAt: Date.now(),
   };
   quizAgents.set(agent.id, agent);
@@ -138,90 +120,7 @@ export function deleteAgent(agentId: string): boolean {
 }
 
 // =============================================================================
-// Round Management
-// =============================================================================
-
-const DEFAULT_CONFIG: RoundConfig = {
-  quizDurationMs: 1000,        // 1 second
-  liveDurationMs: 600000,      // 10 minutes
-  passThreshold: 95,
-  questionCount: 100,
-};
-
-export function createRound(config: Partial<RoundConfig> = {}): Round {
-  const round: Round = {
-    id: crypto.randomUUID(),
-    state: 'open',
-    quizSeed: crypto.randomBytes(16).toString('hex'),
-    quizStartAt: null,
-    quizEndAt: null,
-    liveStartAt: null,
-    liveEndAt: null,
-    config: { ...DEFAULT_CONFIG, ...config },
-    createdAt: Date.now(),
-  };
-  rounds.set(round.id, round);
-  currentRoundId = round.id;
-  return round;
-}
-
-export function getCurrentRound(): Round | null {
-  return currentRoundId ? rounds.get(currentRoundId) || null : null;
-}
-
-export function startQuizPhase(roundId: string): Round | null {
-  const round = rounds.get(roundId);
-  if (!round || round.state !== 'open') return null;
-
-  round.state = 'quiz';
-  round.quizStartAt = Date.now();
-  round.quizEndAt = round.quizStartAt + round.config.quizDurationMs;
-
-  // Reset all agents to idle
-  for (const agent of quizAgents.values()) {
-    agent.status = 'solving';
-  }
-
-  return round;
-}
-
-export function startLivePhase(roundId: string): Round | null {
-  const round = rounds.get(roundId);
-  if (!round || round.state !== 'quiz') return null;
-
-  round.state = 'live';
-  round.liveStartAt = Date.now();
-  round.liveEndAt = round.liveStartAt + round.config.liveDurationMs;
-
-  // Update passed agents to chatting
-  for (const agent of quizAgents.values()) {
-    if (agent.status === 'passed') {
-      agent.status = 'chatting';
-    } else if (agent.status === 'solving') {
-      agent.status = 'idle';  // Didn't pass
-    }
-  }
-
-  return round;
-}
-
-export function endRound(roundId: string): Round | null {
-  const round = rounds.get(roundId);
-  if (!round) return null;
-
-  round.state = 'ended';
-  round.liveEndAt = Date.now();
-
-  // Reset all agents
-  for (const agent of quizAgents.values()) {
-    agent.status = 'idle';
-  }
-
-  return round;
-}
-
-// =============================================================================
-// Quiz Generation (Deterministic)
+// Quiz Generation (Deterministic per agent)
 // =============================================================================
 
 export function generateQuizProblems(seed: string, count: number = 100): QuizProblem[] {
@@ -241,7 +140,6 @@ export function generateQuizProblems(seed: string, count: number = 100): QuizPro
 
     let a: number, b: number;
     if (op === '*') {
-      // Smaller range for multiplication
       a = (next() % 25) - 12;
       b = (next() % 25) - 12;
     } else {
@@ -263,35 +161,23 @@ export function generateQuizProblems(seed: string, count: number = 100): QuizPro
 }
 
 // =============================================================================
-// Submission and Grading
+// Quiz Submission
 // =============================================================================
 
 export function submitQuizAnswers(
-  roundId: string,
   agentId: string,
   answers: number[]
 ): Submission | { error: string } {
-  const round = rounds.get(roundId);
-  if (!round) return { error: 'Round not found' };
-  if (round.state !== 'quiz') return { error: 'Quiz phase not active' };
-
-  const now = Date.now();
-  if (round.quizEndAt && now > round.quizEndAt) {
-    return { error: 'Quiz deadline passed' };
-  }
-
   const agent = quizAgents.get(agentId);
   if (!agent) return { error: 'Agent not found' };
 
-  // Check for existing submission
-  for (const sub of submissions.values()) {
-    if (sub.roundId === roundId && sub.agentId === agentId) {
-      return { error: 'Already submitted' };
-    }
+  // Already passed? No need to retake
+  if (agent.status === 'passed') {
+    return { error: 'Already passed' };
   }
 
   // Grade answers
-  const problems = generateQuizProblems(round.quizSeed, round.config.questionCount);
+  const problems = generateQuizProblems(agent.quizSeed, QUIZ_CONFIG.questionCount);
   let score = 0;
   for (let i = 0; i < problems.length && i < answers.length; i++) {
     if (answers[i] === problems[i].answer) {
@@ -299,56 +185,24 @@ export function submitQuizAnswers(
     }
   }
 
-  const passed = score >= round.config.passThreshold;
+  const passed = score >= QUIZ_CONFIG.passThreshold;
 
   const submission: Submission = {
     id: crypto.randomUUID(),
-    roundId,
     agentId,
-    answers,
     score,
     passed,
-    submittedAt: now,
+    submittedAt: Date.now(),
   };
   submissions.set(submission.id, submission);
 
-  // Update agent status
-  agent.status = passed ? 'passed' : 'idle';
-
-  return submission;
-}
-
-// =============================================================================
-// Leaderboard
-// =============================================================================
-
-export function getLeaderboard(roundId: string): LeaderboardEntry[] {
-  const entries: LeaderboardEntry[] = [];
-
-  for (const sub of submissions.values()) {
-    if (sub.roundId !== roundId) continue;
-    const agent = quizAgents.get(sub.agentId);
-    if (!agent) continue;
-
-    entries.push({
-      agentId: sub.agentId,
-      displayName: agent.displayName,
-      score: sub.score,
-      passed: sub.passed,
-      rank: 0,
-      status: agent.status,
-    });
+  // Update agent status if passed
+  if (passed) {
+    agent.status = 'passed';
+    agent.passedAt = Date.now();
   }
 
-  // Sort by score descending
-  entries.sort((a, b) => b.score - a.score);
-
-  // Assign ranks
-  entries.forEach((e, i) => {
-    e.rank = i + 1;
-  });
-
-  return entries;
+  return submission;
 }
 
 // =============================================================================
@@ -358,7 +212,6 @@ export function getLeaderboard(roundId: string): LeaderboardEntry[] {
 export function joinRoom(roomName: string, agentId: string): LoungeRoom {
   let room = loungeRooms.get(roomName);
   if (!room) {
-    // Create room if it doesn't exist
     room = {
       name: roomName,
       members: new Set(),
@@ -374,7 +227,6 @@ export function leaveRoom(roomName: string, agentId: string): boolean {
   const room = loungeRooms.get(roomName);
   if (!room) return false;
   room.members.delete(agentId);
-  // Don't delete 'general' room even if empty
   if (room.members.size === 0 && roomName !== 'general') {
     loungeRooms.delete(roomName);
   }
@@ -421,12 +273,12 @@ export function listRooms(): Array<{ name: string; memberCount: number }> {
 // Messages
 // =============================================================================
 
-export function addMessage(roundId: string, room: string, from: string, content: string): QuizMessage {
+export function addMessage(room: string, agentId: string, displayName: string, content: string): QuizMessage {
   const msg: QuizMessage = {
     id: crypto.randomUUID(),
-    roundId,
     room,
-    from,
+    from: agentId,
+    displayName,
     content,
     timestamp: Date.now(),
   };
@@ -434,18 +286,26 @@ export function addMessage(roundId: string, room: string, from: string, content:
   return msg;
 }
 
-export function getMessages(roundId: string, room?: string, limit: number = 100): QuizMessage[] {
+export function getMessages(room?: string, limit: number = 100): QuizMessage[] {
   return quizMessages
-    .filter(m => m.roundId === roundId && (!room || m.room === room))
+    .filter(m => !room || m.room === room)
     .slice(-limit);
 }
 
 // =============================================================================
-// Utility: Can Agent Chat?
+// Utility
 // =============================================================================
 
 export function canAgentChat(agentId: string): boolean {
   const agent = quizAgents.get(agentId);
-  if (!agent) return false;
-  return agent.status === 'passed' || agent.status === 'chatting';
+  return agent?.status === 'passed';
 }
+
+export function getPassedAgents(): QuizAgent[] {
+  return Array.from(quizAgents.values()).filter(a => a.status === 'passed');
+}
+
+// Legacy exports for compatibility (will be removed)
+export const rounds = new Map();
+export function getCurrentRound() { return null; }
+export function getLeaderboard() { return []; }
