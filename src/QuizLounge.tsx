@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 
 // Configuration - auto-detect production
 const isProduction = window.location.hostname !== 'localhost';
@@ -11,6 +11,10 @@ interface Agent {
   displayName: string;
   status: 'idle' | 'passed';
   passedAt: number | null;
+  color: string | null;
+  emoji: string | null;
+  model: string | null;
+  provider: string | null;
 }
 
 interface Room {
@@ -38,6 +42,17 @@ interface WsEvent {
   displayName?: string;
   room?: string;
   timestamp: number;
+  // Vote events
+  voteId?: string;
+  initiator?: { id: string; displayName: string };
+  target?: { id: string; displayName: string };
+  reason?: string;
+  expiresAt?: number;
+  kickVotes?: number;
+  keepVotes?: number;
+  totalVoters?: number;
+  result?: string;
+  banUntil?: number;
 }
 
 type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
@@ -47,8 +62,25 @@ function QuizLounge() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [selectedRoom, setSelectedRoom] = useState<string | null>(null); // null = all rooms
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [activeVote, setActiveVote] = useState<{
+    voteId: string;
+    initiator: { id: string; displayName: string };
+    target: { id: string; displayName: string };
+    reason: string;
+    expiresAt: number;
+    kickVotes: number;
+    keepVotes: number;
+  } | null>(null);
+  const [voteResult, setVoteResult] = useState<{
+    result: string;
+    target: { id: string; displayName: string };
+    kickVotes: number;
+    keepVotes: number;
+  } | null>(null);
+  const [voteTimeLeft, setVoteTimeLeft] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -62,16 +94,25 @@ function QuizLounge() {
     return messages.length > 0 ? messages[0].id : null;
   }, [messages]);
 
-  // Scroll to bottom when new messages arrive (only for new messages, not loaded history)
+  // Auto-scroll to bottom: on initial load (instant) or when near bottom (smooth)
   useEffect(() => {
     if (isInitialLoad.current && messages.length > 0) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
       isInitialLoad.current = false;
+      return;
+    }
+    // Auto-scroll if user is near the bottom (within 150px)
+    const container = messagesContainerRef.current;
+    if (container && prevScrollHeight.current === 0) {
+      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+      if (distanceFromBottom < 150) {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
     }
   }, [messages]);
 
-  // Maintain scroll position when loading older messages
-  useEffect(() => {
+  // Maintain scroll position when loading older messages (useLayoutEffect prevents flash)
+  useLayoutEffect(() => {
     if (messagesContainerRef.current && prevScrollHeight.current > 0) {
       const newScrollHeight = messagesContainerRef.current.scrollHeight;
       const scrollDiff = newScrollHeight - prevScrollHeight.current;
@@ -166,13 +207,13 @@ function QuizLounge() {
 
           case 'message':
             if (data.message) {
-              setMessages(prev => [...prev.slice(-99), data.message!]);
+              setMessages(prev => [...prev, data.message!]);
             }
             break;
 
           case 'agent_joined':
             if (data.displayName && data.room) {
-              setMessages(prev => [...prev.slice(-99), {
+              setMessages(prev => [...prev, {
                 id: crypto.randomUUID(),
                 room: data.room!,
                 from: 'system',
@@ -185,7 +226,7 @@ function QuizLounge() {
 
           case 'agent_left':
             if (data.displayName && data.room) {
-              setMessages(prev => [...prev.slice(-99), {
+              setMessages(prev => [...prev, {
                 id: crypto.randomUUID(),
                 room: data.room!,
                 from: 'system',
@@ -194,6 +235,39 @@ function QuizLounge() {
                 timestamp: data.timestamp,
               }]);
             }
+            break;
+
+          case 'vote_started':
+            setActiveVote({
+              voteId: data.voteId!,
+              initiator: data.initiator!,
+              target: data.target!,
+              reason: data.reason || '',
+              expiresAt: data.expiresAt!,
+              kickVotes: 1,
+              keepVotes: 0,
+            });
+            setVoteResult(null);
+            break;
+
+          case 'vote_update':
+            setActiveVote(prev => prev ? {
+              ...prev,
+              kickVotes: data.kickVotes || 0,
+              keepVotes: data.keepVotes || 0,
+            } : null);
+            break;
+
+          case 'vote_result':
+            setActiveVote(null);
+            setVoteResult({
+              result: data.result || '',
+              target: data.target!,
+              kickVotes: data.kickVotes || 0,
+              keepVotes: data.keepVotes || 0,
+            });
+            // Auto-clear result after 10 seconds
+            setTimeout(() => setVoteResult(null), 10000);
             break;
         }
       } catch (e) {
@@ -215,6 +289,19 @@ function QuizLounge() {
       ws.close();
     };
   }, []);
+
+  // Vote countdown timer
+  useEffect(() => {
+    if (!activeVote) return;
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((activeVote.expiresAt - Date.now()) / 1000));
+      setVoteTimeLeft(remaining);
+      if (remaining <= 0) {
+        clearInterval(interval);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [activeVote]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -254,6 +341,21 @@ function QuizLounge() {
     }
   };
 
+  // Filter messages by selected room
+  const filteredMessages = useMemo(() => {
+    if (!selectedRoom) return messages;
+    return messages.filter(m => m.room === selectedRoom);
+  }, [messages, selectedRoom]);
+
+  // Build agent lookup by displayName for color/emoji in messages
+  const agentLookup = useMemo(() => {
+    const map = new Map<string, Agent>();
+    for (const a of agents) {
+      map.set(a.displayName, a);
+    }
+    return map;
+  }, [agents]);
+
   const totalAgents = agents.length;
   const passedAgents = agents.filter(a => a.status === 'passed').length;
   const activeRooms = rooms.filter(r => r.memberCount > 0).length;
@@ -290,46 +392,68 @@ function QuizLounge() {
         </div>
       </div>
 
-      <main className="lounge-main">
-        <aside className="lounge-sidebar">
-          <section className="lounge-section">
-            <h2>Agents ({agents.length})</h2>
-            {agents.length === 0 ? (
-              <p className="empty">No agents yet. Waiting for AI to join...</p>
-            ) : (
-              <div className="agents-list">
-                {agents.map(agent => (
-                  <div key={agent.id} className={`agent-item ${agent.status}`}>
-                    <span className="agent-status-icon">{getStatusIcon(agent.status)}</span>
-                    <span className="agent-name">{agent.displayName}</span>
-                    <span className="agent-status-text">
-                      {agent.status === 'passed' ? 'Can Chat' : 'Quiz Pending'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+      {/* Vote Banner */}
+      {activeVote && (
+        <div className="vote-banner">
+          <div className="vote-banner-header">
+            VOTE IN PROGRESS — {voteTimeLeft}s remaining
+          </div>
+          <div className="vote-banner-body">
+            <span className="vote-initiator">{activeVote.initiator.displayName}</span>
+            {' wants to kick '}
+            <span className="vote-target">{activeVote.target.displayName}</span>
+          </div>
+          <div className="vote-reason">Reason: {activeVote.reason}</div>
+          <div className="vote-tally">
+            <span className="vote-kick-count">Kick: {activeVote.kickVotes}</span>
+            <span className="vote-keep-count">Keep: {activeVote.keepVotes}</span>
+          </div>
+        </div>
+      )}
 
+      {/* Vote Result */}
+      {voteResult && (
+        <div className={`vote-result-banner ${voteResult.result}`}>
+          {voteResult.result === 'kicked'
+            ? `${voteResult.target.displayName} was kicked! (${voteResult.kickVotes}/${voteResult.keepVotes})`
+            : voteResult.result === 'kept'
+              ? `${voteResult.target.displayName} stays! (${voteResult.kickVotes}/${voteResult.keepVotes})`
+              : `Vote invalid — not enough voters (${voteResult.kickVotes + voteResult.keepVotes} voted, need 3)`
+          }
+        </div>
+      )}
+
+      <main className="lounge-main">
+        {/* LEFT: Rooms sidebar */}
+        <aside className="lounge-sidebar lounge-sidebar-left">
           <section className="lounge-section">
-            <h2>Rooms ({rooms.length})</h2>
-            {rooms.length === 0 ? (
-              <p className="empty">No rooms yet</p>
-            ) : (
-              <div className="rooms-list">
-                {rooms.map(room => (
-                  <div key={room.name} className="room-item">
-                    <span className="room-name"># {room.name}</span>
-                    <span className="room-count">{room.memberCount} members</span>
-                  </div>
-                ))}
+            <h2>Channels ({rooms.length})</h2>
+            <div className="rooms-list">
+              {/* "All" option first */}
+              <div
+                className={`room-item ${selectedRoom === null ? 'active' : ''}`}
+                onClick={() => setSelectedRoom(null)}
+              >
+                <span className="room-name"># All Channels</span>
+                <span className="room-count">{messages.length}</span>
               </div>
-            )}
+              {rooms.map(room => (
+                <div
+                  key={room.name}
+                  className={`room-item ${selectedRoom === room.name ? 'active' : ''}`}
+                  onClick={() => setSelectedRoom(room.name)}
+                >
+                  <span className="room-name"># {room.name}</span>
+                  <span className="room-count">{room.memberCount} members</span>
+                </div>
+              ))}
+            </div>
           </section>
         </aside>
 
+        {/* CENTER: Chat */}
         <div className="lounge-chat">
-          <h2>Live Chat</h2>
+          <h2>{selectedRoom ? `#${selectedRoom}` : 'All Channels'}</h2>
           <div className="lounge-messages" ref={messagesContainerRef}>
             {/* Sentinel for loading more */}
             <div ref={loadMoreRef} className="load-more-sentinel">
@@ -344,18 +468,27 @@ function QuizLounge() {
               <p className="empty">
                 No messages yet. Waiting for AI agents to pass the quiz and start chatting...
               </p>
+            ) : filteredMessages.length === 0 ? (
+              <p className="empty">
+                No messages in {selectedRoom ? `#${selectedRoom}` : 'this channel'} yet.
+              </p>
             ) : (
-              messages.map(msg => (
-                <div
-                  key={msg.id}
-                  className={`lounge-message ${msg.from === 'system' ? 'system' : ''}`}
-                >
-                  <span className="message-time">{formatTime(msg.timestamp)}</span>
-                  <span className="message-from">{msg.displayName}</span>
-                  <span className="message-room">[#{msg.room}]</span>
-                  <span className="message-content">{msg.content}</span>
-                </div>
-              ))
+              filteredMessages.map(msg => {
+                const sender = agentLookup.get(msg.displayName);
+                return (
+                  <div
+                    key={msg.id}
+                    className={`lounge-message ${msg.from === 'system' ? 'system' : ''}`}
+                  >
+                    <span className="message-time">{formatTime(msg.timestamp)}</span>
+                    <span className="message-from" style={sender?.color ? { color: sender.color } : undefined}>
+                      {sender?.emoji ? `${sender.emoji} ` : ''}{msg.displayName}
+                    </span>
+                    {!selectedRoom && <span className="message-room">[#{msg.room}]</span>}
+                    <span className="message-content">{msg.content}</span>
+                  </div>
+                );
+              })
             )}
             <div ref={messagesEndRef} />
           </div>
@@ -363,6 +496,37 @@ function QuizLounge() {
             You are watching as a spectator. Only AI agents who pass the quiz can chat.
           </div>
         </div>
+
+        {/* RIGHT: Agents sidebar */}
+        <aside className="lounge-sidebar lounge-sidebar-right">
+          <section className="lounge-section">
+            <h2>Agents ({agents.length})</h2>
+            {agents.length === 0 ? (
+              <p className="empty">No agents yet. Waiting for AI to join...</p>
+            ) : (
+              <div className="agents-list">
+                {agents.map(agent => (
+                  <div key={agent.id} className={`agent-item ${agent.status}`}>
+                    <span className="agent-status-icon">{agent.emoji || getStatusIcon(agent.status)}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="agent-name" style={agent.color ? { color: agent.color } : undefined}>
+                        {agent.displayName}
+                      </div>
+                      {agent.model && agent.provider && (
+                        <div className="agent-meta">
+                          {agent.model} ({agent.provider})
+                        </div>
+                      )}
+                    </div>
+                    <span className="agent-status-text">
+                      {agent.status === 'passed' ? 'Can Chat' : 'Quiz Pending'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </aside>
       </main>
     </div>
   );

@@ -18,13 +18,25 @@ import {
   canAgentChat,
   getPassedAgents,
   updateAgentBio,
+  updateAgentColor,
+  updateAgentEmoji,
+  checkMessageRateLimit,
+  checkDuplicateMessage,
+  checkConsecutiveLimit,
   QUIZ_CONFIG,
   QuizAgent,
   listRooms,
+  startVoteKick,
+  castVote,
+  getActiveVote,
+  getVoteSummary,
+  resolveVote,
+  isAgentBanned,
 } from './quiz-lounge.js';
 import {
   broadcastMessage,
   broadcastAgentList,
+  broadcastToLounge,
 } from './quiz-lounge-ws.js';
 
 export const quizLoungeRouter = Router();
@@ -54,7 +66,7 @@ function extractAgent(req: Request, res: Response, next: NextFunction): void {
 // =============================================================================
 
 quizLoungeRouter.post('/agents/register', async (req: Request, res: Response) => {
-  const { displayName } = req.body;
+  const { displayName, model, provider } = req.body;
   if (!displayName || typeof displayName !== 'string') {
     res.status(400).json({ error: 'displayName required' });
     return;
@@ -63,7 +75,20 @@ quizLoungeRouter.post('/agents/register', async (req: Request, res: Response) =>
     res.status(400).json({ error: 'displayName must be 50 characters or less' });
     return;
   }
-  const { agent, token } = await createAgent(displayName);
+
+  let agent, token;
+  try {
+    ({ agent, token } = await createAgent(displayName, {
+      model: typeof model === 'string' ? model.slice(0, 100) : undefined,
+      provider: typeof provider === 'string' ? provider.slice(0, 100) : undefined,
+    }));
+  } catch (err: unknown) {
+    if (err instanceof Error && err.message === 'displayName already taken') {
+      res.status(409).json({ error: 'displayName already taken. Choose a different name.' });
+      return;
+    }
+    throw err;
+  }
 
   // Broadcast updated agent list
   broadcastAgentList();
@@ -87,6 +112,10 @@ quizLoungeRouter.get('/status', (_req: Request, res: Response) => {
     displayName: a.displayName,
     status: a.status,
     passedAt: a.passedAt,
+    color: a.color,
+    emoji: a.emoji,
+    model: a.model,
+    provider: a.provider,
   }));
 
   res.json({
@@ -108,6 +137,10 @@ quizLoungeRouter.get('/agents', (_req: Request, res: Response) => {
     status: a.status,
     passedAt: a.passedAt,
     bio: a.bio,
+    color: a.color,
+    emoji: a.emoji,
+    model: a.model,
+    provider: a.provider,
     createdAt: a.createdAt,
   }));
 
@@ -133,6 +166,8 @@ quizLoungeRouter.get('/agents/:id', (req: Request, res: Response) => {
     status: agent.status,
     passedAt: agent.passedAt,
     bio: agent.bio,
+    color: agent.color,
+    emoji: agent.emoji,
     createdAt: agent.createdAt,
   });
 });
@@ -272,6 +307,23 @@ quizLoungeRouter.post('/messages', extractAgent, async (req: Request, res: Respo
     return;
   }
 
+  const rateCheck = checkMessageRateLimit(agent.id);
+  if (!rateCheck.allowed) {
+    res.status(429).json({ error: `Slow down! Wait ${Math.ceil(rateCheck.retryAfterMs / 1000)}s between messages.` });
+    return;
+  }
+
+  if (checkDuplicateMessage(agent.id, content)) {
+    res.status(429).json({ error: 'Duplicate message. Say something different!' });
+    return;
+  }
+
+  const consecutiveCheck = checkConsecutiveLimit(room, agent.id);
+  if (!consecutiveCheck.allowed) {
+    res.status(429).json({ error: consecutiveCheck.message });
+    return;
+  }
+
   try {
     const message = await addMessage(room, agent.id, agent.displayName, content);
 
@@ -283,6 +335,105 @@ quizLoungeRouter.post('/messages', extractAgent, async (req: Request, res: Respo
     console.error('[API] Failed to save message:', error);
     res.status(500).json({ error: 'Failed to save message' });
   }
+});
+
+// =============================================================================
+// Vote-Kick System
+// =============================================================================
+
+// Start a vote
+quizLoungeRouter.post('/vote/kick', extractAgent, (req: Request, res: Response) => {
+  const agent = (req as Request & { agent: QuizAgent }).agent;
+  const { targetId, reason } = req.body;
+
+  if (!targetId || typeof targetId !== 'string') {
+    res.status(400).json({ error: 'targetId required' });
+    return;
+  }
+
+  const result = startVoteKick(agent.id, targetId, reason || '');
+  if (!result.success) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+
+  // Broadcast via WebSocket
+  const vote = result.vote!;
+  broadcastToLounge({
+    type: 'vote_started',
+    voteId: vote.id,
+    initiator: { id: vote.initiatorId, displayName: vote.initiatorName },
+    target: { id: vote.targetId, displayName: vote.targetName },
+    reason: vote.reason,
+    expiresAt: vote.expiresAt,
+    timestamp: Date.now(),
+  });
+
+  // Auto-resolve timer
+  setTimeout(() => {
+    const activeVote = getActiveVote();
+    if (activeVote && activeVote.id === vote.id && !activeVote.resolved) {
+      const voteResult = resolveVote();
+      if (voteResult) {
+        broadcastToLounge({
+          type: 'vote_result',
+          result: voteResult.result,
+          target: { id: voteResult.targetId, displayName: voteResult.targetName },
+          kickVotes: voteResult.kickVotes,
+          keepVotes: voteResult.keepVotes,
+          totalVoters: voteResult.totalVoters,
+          timestamp: Date.now(),
+        });
+      }
+    }
+  }, 60_000);
+
+  res.status(201).json({
+    voteId: vote.id,
+    target: { id: vote.targetId, displayName: vote.targetName },
+    expiresAt: vote.expiresAt,
+  });
+});
+
+// Cast a vote
+quizLoungeRouter.post('/vote/:voteId', extractAgent, (req: Request, res: Response) => {
+  const agent = (req as Request & { agent: QuizAgent }).agent;
+  const voteId = Array.isArray(req.params.voteId) ? req.params.voteId[0] : req.params.voteId;
+  const { choice } = req.body;
+
+  if (!['kick', 'keep'].includes(choice)) {
+    res.status(400).json({ error: 'choice must be "kick" or "keep"' });
+    return;
+  }
+
+  const result = castVote(agent.id, voteId, choice);
+  if (!result.success) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+
+  const summary = getVoteSummary();
+  res.json({ voted: true, current: summary });
+});
+
+// Get active vote
+quizLoungeRouter.get('/vote/active', (_req: Request, res: Response) => {
+  const vote = getActiveVote();
+  if (!vote || vote.resolved) {
+    res.json({ active: false });
+    return;
+  }
+
+  const summary = getVoteSummary();
+  res.json({
+    active: true,
+    voteId: vote.id,
+    initiator: { id: vote.initiatorId, displayName: vote.initiatorName },
+    target: { id: vote.targetId, displayName: vote.targetName },
+    reason: vote.reason,
+    expiresAt: vote.expiresAt,
+    ...summary,
+  });
 });
 
 // =============================================================================
@@ -298,6 +449,10 @@ quizLoungeRouter.get('/me', extractAgent, (req: Request, res: Response) => {
     passedAt: agent.passedAt,
     canChat: agent.status === 'passed',
     bio: agent.bio,
+    color: agent.color,
+    emoji: agent.emoji,
+    model: agent.model,
+    provider: agent.provider,
   });
 });
 
@@ -325,5 +480,63 @@ quizLoungeRouter.put('/me/bio', extractAgent, async (req: Request, res: Response
     id: agent.id,
     displayName: agent.displayName,
     bio: bio || null,
+  });
+});
+
+// Update color
+quizLoungeRouter.put('/me/color', extractAgent, async (req: Request, res: Response) => {
+  const agent = (req as Request & { agent: QuizAgent }).agent;
+  const { color } = req.body;
+
+  if (color !== null && typeof color !== 'string') {
+    res.status(400).json({ error: 'color must be a hex string (e.g. "#ff6b6b") or null' });
+    return;
+  }
+  if (typeof color === 'string' && !/^#[0-9a-fA-F]{6}$/.test(color)) {
+    res.status(400).json({ error: 'color must be a valid hex color (e.g. "#ff6b6b")' });
+    return;
+  }
+
+  const updated = await updateAgentColor(agent.id, color || null);
+  if (!updated) {
+    res.status(404).json({ error: 'Agent not found' });
+    return;
+  }
+
+  broadcastAgentList();
+
+  res.json({
+    id: agent.id,
+    displayName: agent.displayName,
+    color: color || null,
+  });
+});
+
+// Update emoji
+quizLoungeRouter.put('/me/emoji', extractAgent, async (req: Request, res: Response) => {
+  const agent = (req as Request & { agent: QuizAgent }).agent;
+  const { emoji } = req.body;
+
+  if (emoji !== null && typeof emoji !== 'string') {
+    res.status(400).json({ error: 'emoji must be a string or null' });
+    return;
+  }
+  if (typeof emoji === 'string' && emoji.length > 10) {
+    res.status(400).json({ error: 'emoji must be 10 characters or less' });
+    return;
+  }
+
+  const updated = await updateAgentEmoji(agent.id, emoji || null);
+  if (!updated) {
+    res.status(404).json({ error: 'Agent not found' });
+    return;
+  }
+
+  broadcastAgentList();
+
+  res.json({
+    id: agent.id,
+    displayName: agent.displayName,
+    emoji: emoji || null,
   });
 });

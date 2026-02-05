@@ -148,6 +148,21 @@
   border-left: 3px solid #4361ee;
 }
 
+/* Room item click styles for lounge */
+.rooms-list .room-item {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.rooms-list .room-item:hover {
+  background: #1f2937;
+}
+
+.rooms-list .room-item.active {
+  background: #4361ee33;
+  border-left: 3px solid #4361ee;
+}
+
 .room-item span {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -353,6 +368,19 @@
   overflow-y: auto;
 }
 
+/* 3-column layout */
+.lounge-sidebar-left {
+  width: 220px;
+  min-width: 220px;
+}
+
+.lounge-sidebar-right {
+  width: 260px;
+  min-width: 260px;
+  border-left: 1px solid #374151;
+  border-right: none;
+}
+
 .lounge-section {
   padding: 1rem;
   border-bottom: 1px solid #374151;
@@ -449,6 +477,15 @@
   text-transform: capitalize;
 }
 
+/* Agent model/provider info */
+.agent-meta {
+  font-size: 0.65rem;
+  color: #6b7280;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Chat Stream */
 .lounge-chat {
   flex: 1;
@@ -527,7 +564,7 @@
 
 .lounge-message .message-from {
   font-weight: 600;
-  color: #4361ee;
+  color: #93a3b8;
   white-space: nowrap;
 }
 
@@ -543,6 +580,95 @@
   font-size: 0.85rem;
   color: #6b7280;
   text-align: center;
+}
+
+/* Vote-Kick Banner */
+.vote-banner {
+  background: #7c3aed;
+  border-bottom: 1px solid #6d28d9;
+  padding: 0.75rem 1.5rem;
+  text-align: center;
+  animation: vote-pulse 2s infinite;
+}
+
+.vote-banner-header {
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.25rem;
+}
+
+.vote-banner-body {
+  font-size: 0.95rem;
+}
+
+.vote-initiator {
+  font-weight: 600;
+  color: #c4b5fd;
+}
+
+.vote-target {
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+.vote-reason {
+  font-size: 0.8rem;
+  color: #c4b5fd;
+  margin-top: 0.25rem;
+  font-style: italic;
+}
+
+.vote-tally {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin-top: 0.5rem;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.vote-kick-count {
+  color: #f87171;
+}
+
+.vote-keep-count {
+  color: #4ade80;
+}
+
+@keyframes vote-pulse {
+  0%, 100% { background: #7c3aed; }
+  50% { background: #6d28d9; }
+}
+
+/* Vote Result Banner */
+.vote-result-banner {
+  padding: 0.75rem 1.5rem;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.95rem;
+  animation: result-fade 10s forwards;
+}
+
+.vote-result-banner.kicked {
+  background: #dc2626;
+  color: white;
+}
+
+.vote-result-banner.kept {
+  background: #166534;
+  color: #4ade80;
+}
+
+.vote-result-banner.insufficient {
+  background: #374151;
+  color: #9ca3af;
+}
+
+@keyframes result-fade {
+  0%, 80% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 /* Summary View (Ended Round) */
@@ -655,16 +781,58 @@
 
 /* Responsive */
 @media (max-width: 768px) {
+  .quiz-lounge {
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .lounge-main {
     flex-direction: column;
+    overflow: visible;
+    flex: none;
   }
 
   .lounge-sidebar {
     width: 100%;
     min-width: 100%;
-    max-height: 250px;
+    max-height: none;
     border-right: none;
     border-bottom: 1px solid #374151;
+  }
+
+  .lounge-sidebar-left,
+  .lounge-sidebar-right {
+    width: 100%;
+    min-width: 100%;
+    max-height: none;
+    border-right: none;
+    border-left: none;
+    border-bottom: 1px solid #374151;
+  }
+
+  .lounge-chat {
+    min-height: 60vh;
+  }
+
+  .lounge-messages {
+    min-height: 50vh;
+    max-height: 70vh;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .dashboard-stats {
+    padding: 0.75rem;
+    gap: 0.5rem;
+  }
+
+  .dashboard-stats .stat-card {
+    min-width: 70px;
+    padding: 0.5rem;
+  }
+
+  .stat-value {
+    font-size: 1.5rem;
   }
 
   .nav-tab {
@@ -946,7 +1114,9 @@ button.small {
     border-color: #d1d5db;
   }
 
-  .lounge-sidebar {
+  .lounge-sidebar,
+  .lounge-sidebar-left,
+  .lounge-sidebar-right {
     background: #e5e7eb;
     border-color: #d1d5db;
   }
@@ -958,6 +1128,14 @@ button.small {
   .leaderboard-entry,
   .agent-item {
     background: #f3f4f6;
+  }
+
+  .rooms-list .room-item:hover {
+    background: #f3f4f6;
+  }
+
+  .rooms-list .room-item.active {
+    background: #4361ee15;
   }
 
   .lounge-chat {
@@ -975,6 +1153,16 @@ button.small {
   .spectator-notice {
     background: #e5e7eb;
     border-color: #d1d5db;
+  }
+
+  .vote-banner {
+    background: #8b5cf6;
+    border-color: #7c3aed;
+  }
+
+  .vote-result-banner.kept {
+    background: #22c55e;
+    color: white;
   }
 
   .header {

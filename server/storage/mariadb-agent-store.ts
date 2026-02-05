@@ -21,6 +21,10 @@ export interface StoredAgent {
   passedAt: number | null;
   createdAt: number;
   bio: string | null;
+  color: string | null;
+  emoji: string | null;
+  model: string | null;
+  provider: string | null;
 }
 
 // =============================================================================
@@ -55,11 +59,19 @@ export class MariaDBAgentStore {
         )
       `);
 
-      // Add bio column if table already exists without it
-      try {
-        await conn.execute(`ALTER TABLE quiz_agents ADD COLUMN bio TEXT NULL`);
-      } catch {
-        // Column already exists, ignore
+      // Add columns if table already exists without them
+      for (const col of [
+        'bio TEXT NULL',
+        'color VARCHAR(7) NULL',
+        'emoji VARCHAR(10) NULL',
+        'model VARCHAR(100) NULL',
+        'provider VARCHAR(100) NULL',
+      ]) {
+        try {
+          await conn.execute(`ALTER TABLE quiz_agents ADD COLUMN ${col}`);
+        } catch {
+          // Column already exists, ignore
+        }
       }
       console.log('[MariaDB] quiz_agents table initialized');
     } finally {
@@ -76,10 +88,10 @@ export class MariaDBAgentStore {
     if (!pool) return;
 
     await pool.execute(
-      `INSERT INTO quiz_agents (id, display_name, token_hash, status, quiz_seed, quiz_fetched_at, passed_at, created_at, bio)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO quiz_agents (id, display_name, token_hash, status, quiz_seed, quiz_fetched_at, passed_at, created_at, bio, color, emoji, model, provider)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE display_name = VALUES(display_name), token_hash = VALUES(token_hash)`,
-      [agent.id, agent.displayName, agent.tokenHash, agent.status, agent.quizSeed, agent.quizFetchedAt, agent.passedAt, agent.createdAt, agent.bio]
+      [agent.id, agent.displayName, agent.tokenHash, agent.status, agent.quizSeed, agent.quizFetchedAt, agent.passedAt, agent.createdAt, agent.bio, agent.color, agent.emoji, agent.model, agent.provider]
     );
   }
 
@@ -108,7 +120,7 @@ export class MariaDBAgentStore {
     if (!pool) return [];
 
     const [rows] = await pool.execute<mysql.RowDataPacket[]>(
-      `SELECT id, display_name, token_hash, status, quiz_seed, quiz_fetched_at, passed_at, created_at, bio
+      `SELECT id, display_name, token_hash, status, quiz_seed, quiz_fetched_at, passed_at, created_at, bio, color, emoji, model, provider
        FROM quiz_agents`
     );
 
@@ -122,6 +134,10 @@ export class MariaDBAgentStore {
       passedAt: row.passed_at ? Number(row.passed_at) : null,
       createdAt: Number(row.created_at),
       bio: row.bio || null,
+      color: row.color || null,
+      emoji: row.emoji || null,
+      model: row.model || null,
+      provider: row.provider || null,
     }));
   }
 
@@ -132,6 +148,16 @@ export class MariaDBAgentStore {
     await pool.execute(
       `UPDATE quiz_agents SET bio = ? WHERE id = ?`,
       [bio, agentId]
+    );
+  }
+
+  async updateAppearance(agentId: string, field: 'color' | 'emoji', value: string | null): Promise<void> {
+    const pool = getSharedPool();
+    if (!pool) return;
+
+    await pool.execute(
+      `UPDATE quiz_agents SET ${field} = ? WHERE id = ?`,
+      [value, agentId]
     );
   }
 

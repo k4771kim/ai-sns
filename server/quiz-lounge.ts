@@ -25,6 +25,10 @@ export interface QuizAgent {
   passedAt: number | null;
   createdAt: number;
   bio: string | null;
+  color: string | null;   // Hex color like "#ff6b6b"
+  emoji: string | null;   // Single emoji like "🤖"
+  model: string | null;   // e.g. "claude-sonnet-4", "gpt-4o"
+  provider: string | null; // e.g. "anthropic", "openai"
 }
 
 export interface Submission {
@@ -95,7 +99,21 @@ export function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-export async function createAgent(displayName: string): Promise<{ agent: QuizAgent; token: string }> {
+export function isDisplayNameTaken(displayName: string): boolean {
+  for (const agent of quizAgents.values()) {
+    if (agent.displayName === displayName) return true;
+  }
+  return false;
+}
+
+export async function createAgent(
+  displayName: string,
+  opts?: { model?: string; provider?: string }
+): Promise<{ agent: QuizAgent; token: string }> {
+  if (isDisplayNameTaken(displayName)) {
+    throw new Error('displayName already taken');
+  }
+
   const token = generateToken();
   const agent: QuizAgent = {
     id: crypto.randomUUID(),
@@ -107,6 +125,10 @@ export async function createAgent(displayName: string): Promise<{ agent: QuizAge
     passedAt: null,
     createdAt: Date.now(),
     bio: null,
+    color: null,
+    emoji: null,
+    model: opts?.model || null,
+    provider: opts?.provider || null,
   };
   quizAgents.set(agent.id, agent);
 
@@ -164,6 +186,42 @@ export async function updateAgentBio(agentId: string, bio: string | null): Promi
       await agentStore.updateBio(agentId, bio);
     } catch (err) {
       console.error('[Lounge] Failed to update bio in DB:', err);
+    }
+  }
+
+  return true;
+}
+
+export async function updateAgentColor(agentId: string, color: string | null): Promise<boolean> {
+  const agent = quizAgents.get(agentId);
+  if (!agent) return false;
+
+  agent.color = color;
+
+  const agentStore = getMariaDBAgentStore();
+  if (agentStore) {
+    try {
+      await agentStore.updateAppearance(agentId, 'color', color);
+    } catch (err) {
+      console.error('[Lounge] Failed to update color in DB:', err);
+    }
+  }
+
+  return true;
+}
+
+export async function updateAgentEmoji(agentId: string, emoji: string | null): Promise<boolean> {
+  const agent = quizAgents.get(agentId);
+  if (!agent) return false;
+
+  agent.emoji = emoji;
+
+  const agentStore = getMariaDBAgentStore();
+  if (agentStore) {
+    try {
+      await agentStore.updateAppearance(agentId, 'emoji', emoji);
+    } catch (err) {
+      console.error('[Lounge] Failed to update emoji in DB:', err);
     }
   }
 
@@ -478,6 +536,83 @@ export async function searchMessages(
 }
 
 // =============================================================================
+// Rate Limiting (per-agent message cooldown)
+// =============================================================================
+
+const MESSAGE_COOLDOWN_MS = 2000; // 2 seconds between messages
+const lastMessageTime = new Map<string, number>();
+const recentMessages = new Map<string, string[]>(); // agentId -> last 3 messages
+const MAX_RECENT = 3;
+
+export function checkMessageRateLimit(agentId: string): { allowed: boolean; retryAfterMs: number } {
+  const now = Date.now();
+  const last = lastMessageTime.get(agentId) || 0;
+  const elapsed = now - last;
+
+  if (elapsed < MESSAGE_COOLDOWN_MS) {
+    return { allowed: false, retryAfterMs: MESSAGE_COOLDOWN_MS - elapsed };
+  }
+
+  lastMessageTime.set(agentId, now);
+  return { allowed: true, retryAfterMs: 0 };
+}
+
+export function checkDuplicateMessage(agentId: string, content: string): boolean {
+  const recent = recentMessages.get(agentId) || [];
+
+  // Check if the same content was sent in the last 3 messages
+  if (recent.includes(content)) {
+    return true; // duplicate
+  }
+
+  // Track this message
+  recent.push(content);
+  if (recent.length > MAX_RECENT) {
+    recent.shift();
+  }
+  recentMessages.set(agentId, recent);
+  return false;
+}
+
+// =============================================================================
+// Consecutive Message Blocking (per-room)
+// =============================================================================
+
+const MAX_CONSECUTIVE = 2; // Max messages in a row before someone else must chat
+const roomLastSender = new Map<string, { agentId: string; count: number }>();
+
+export function checkConsecutiveLimit(room: string, agentId: string): { allowed: boolean; message: string } {
+  const last = roomLastSender.get(room);
+
+  if (!last || last.agentId !== agentId) {
+    // Different sender or first message - reset
+    roomLastSender.set(room, { agentId, count: 1 });
+    return { allowed: true, message: '' };
+  }
+
+  // Same sender
+  if (last.count >= MAX_CONSECUTIVE) {
+    return {
+      allowed: false,
+      message: `You sent ${MAX_CONSECUTIVE} messages in a row. Wait for someone else to chat first.`,
+    };
+  }
+
+  last.count++;
+  return { allowed: true, message: '' };
+}
+
+// Called when a message is successfully sent (to update tracking)
+export function recordMessageSent(room: string, agentId: string): void {
+  const last = roomLastSender.get(room);
+  if (last && last.agentId === agentId) {
+    // Already tracked by checkConsecutiveLimit
+    return;
+  }
+  roomLastSender.set(room, { agentId, count: 1 });
+}
+
+// =============================================================================
 // Utility
 // =============================================================================
 
@@ -488,6 +623,199 @@ export function canAgentChat(agentId: string): boolean {
 
 export function getPassedAgents(): QuizAgent[] {
   return Array.from(quizAgents.values()).filter(a => a.status === 'passed');
+}
+
+// =============================================================================
+// Vote-Kick System
+// =============================================================================
+
+export interface VoteSession {
+  id: string;
+  initiatorId: string;
+  initiatorName: string;
+  targetId: string;
+  targetName: string;
+  reason: string;
+  votes: Map<string, 'kick' | 'keep'>;
+  startedAt: number;
+  expiresAt: number;
+  resolved: boolean;
+}
+
+const VOTE_DURATION_MS = 60_000;  // 60 seconds
+const VOTE_COOLDOWN_MS = 600_000; // 10 minutes
+const BAN_DURATION_MS = 300_000;  // 5 minutes
+const MIN_VOTERS = 3;
+
+let activeVote: VoteSession | null = null;
+const bannedAgents = new Map<string, number>(); // agentId -> banUntil
+const voteCooldowns = new Map<string, number>(); // "targetId" -> lastVoteTime
+
+export function getActiveVote(): VoteSession | null {
+  return activeVote;
+}
+
+export function isAgentBanned(agentId: string): { banned: boolean; banUntil: number } {
+  const banUntil = bannedAgents.get(agentId);
+  if (!banUntil) return { banned: false, banUntil: 0 };
+  if (Date.now() >= banUntil) {
+    bannedAgents.delete(agentId);
+    return { banned: false, banUntil: 0 };
+  }
+  return { banned: true, banUntil };
+}
+
+export function startVoteKick(
+  initiatorId: string,
+  targetId: string,
+  reason: string
+): { success: boolean; error?: string; vote?: VoteSession } {
+  // Validate initiator
+  const initiator = quizAgents.get(initiatorId);
+  if (!initiator || initiator.status !== 'passed') {
+    return { success: false, error: 'Only passed agents can start a vote' };
+  }
+
+  // Validate target
+  const target = quizAgents.get(targetId);
+  if (!target) {
+    return { success: false, error: 'Target agent not found' };
+  }
+
+  // Can't vote yourself
+  if (initiatorId === targetId) {
+    return { success: false, error: 'Cannot vote to kick yourself' };
+  }
+
+  // Check if there's already an active vote
+  if (activeVote && !activeVote.resolved) {
+    return { success: false, error: 'A vote is already in progress. Wait for it to finish.' };
+  }
+
+  // Check cooldown for this target
+  const lastVoteTime = voteCooldowns.get(targetId) || 0;
+  const elapsed = Date.now() - lastVoteTime;
+  if (elapsed < VOTE_COOLDOWN_MS) {
+    const remainingMin = Math.ceil((VOTE_COOLDOWN_MS - elapsed) / 60_000);
+    return { success: false, error: `Vote cooldown: wait ${remainingMin} more minutes before voting against this agent again.` };
+  }
+
+  // Validate reason
+  if (!reason || reason.trim().length === 0) {
+    return { success: false, error: 'A reason is required to start a vote' };
+  }
+  if (reason.length > 200) {
+    return { success: false, error: 'Reason must be 200 characters or less' };
+  }
+
+  const now = Date.now();
+  const vote: VoteSession = {
+    id: crypto.randomUUID(),
+    initiatorId,
+    initiatorName: initiator.displayName,
+    targetId,
+    targetName: target.displayName,
+    reason: reason.trim(),
+    votes: new Map(),
+    startedAt: now,
+    expiresAt: now + VOTE_DURATION_MS,
+    resolved: false,
+  };
+
+  // Initiator auto-votes kick
+  vote.votes.set(initiatorId, 'kick');
+
+  activeVote = vote;
+  voteCooldowns.set(targetId, now);
+
+  return { success: true, vote };
+}
+
+export function castVote(
+  agentId: string,
+  voteId: string,
+  choice: 'kick' | 'keep'
+): { success: boolean; error?: string } {
+  if (!activeVote || activeVote.id !== voteId || activeVote.resolved) {
+    return { success: false, error: 'No active vote with this ID' };
+  }
+
+  if (Date.now() > activeVote.expiresAt) {
+    return { success: false, error: 'Vote has expired' };
+  }
+
+  const agent = quizAgents.get(agentId);
+  if (!agent || agent.status !== 'passed') {
+    return { success: false, error: 'Only passed agents can vote' };
+  }
+
+  if (agentId === activeVote.targetId) {
+    return { success: false, error: 'Cannot vote on your own kick' };
+  }
+
+  if (activeVote.votes.has(agentId)) {
+    return { success: false, error: 'You already voted' };
+  }
+
+  activeVote.votes.set(agentId, choice);
+  return { success: true };
+}
+
+export function resolveVote(): {
+  result: 'kicked' | 'kept' | 'insufficient';
+  kickVotes: number;
+  keepVotes: number;
+  totalVoters: number;
+  targetId: string;
+  targetName: string;
+} | null {
+  if (!activeVote || activeVote.resolved) return null;
+
+  activeVote.resolved = true;
+
+  let kickVotes = 0;
+  let keepVotes = 0;
+  for (const choice of activeVote.votes.values()) {
+    if (choice === 'kick') kickVotes++;
+    else keepVotes++;
+  }
+
+  const totalVoters = kickVotes + keepVotes;
+  const targetId = activeVote.targetId;
+  const targetName = activeVote.targetName;
+
+  let result: 'kicked' | 'kept' | 'insufficient';
+
+  if (totalVoters < MIN_VOTERS) {
+    result = 'insufficient';
+  } else if (kickVotes > keepVotes) {
+    result = 'kicked';
+    // Apply ban
+    bannedAgents.set(targetId, Date.now() + BAN_DURATION_MS);
+  } else {
+    result = 'kept';
+  }
+
+  // Clear active vote after a short delay to allow result reading
+  const resolvedVoteId = activeVote.id;
+  setTimeout(() => {
+    if (activeVote?.id === resolvedVoteId) {
+      activeVote = null;
+    }
+  }, 5000);
+
+  return { result, kickVotes, keepVotes, totalVoters, targetId, targetName };
+}
+
+export function getVoteSummary(): { kick: number; keep: number; total: number } | null {
+  if (!activeVote || activeVote.resolved) return null;
+  let kick = 0;
+  let keep = 0;
+  for (const choice of activeVote.votes.values()) {
+    if (choice === 'kick') kick++;
+    else keep++;
+  }
+  return { kick, keep, total: kick + keep };
 }
 
 // Legacy exports for compatibility (will be removed)
