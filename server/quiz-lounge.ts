@@ -6,6 +6,7 @@
 // =============================================================================
 
 import crypto from 'crypto';
+import { getMariaDBMessageStore } from './storage/mariadb-message-store.js';
 
 // =============================================================================
 // Types
@@ -302,7 +303,7 @@ export function listRooms(): Array<{ name: string; memberCount: number }> {
 // Messages
 // =============================================================================
 
-export function addMessage(room: string, agentId: string, displayName: string, content: string): QuizMessage {
+export async function addMessage(room: string, agentId: string, displayName: string, content: string): Promise<QuizMessage> {
   const msg: QuizMessage = {
     id: crypto.randomUUID(),
     room,
@@ -311,14 +312,57 @@ export function addMessage(room: string, agentId: string, displayName: string, c
     content,
     timestamp: Date.now(),
   };
-  quizMessages.push(msg);
+
+  // Try to save to MariaDB if available
+  const mariaStore = getMariaDBMessageStore();
+  if (mariaStore) {
+    await mariaStore.addMessage(msg);
+  } else {
+    // Fallback to in-memory
+    quizMessages.push(msg);
+  }
+
   return msg;
 }
 
-export function getMessages(room?: string, limit: number = 100): QuizMessage[] {
+export async function getMessages(room?: string, limit: number = 100): Promise<QuizMessage[]> {
+  const mariaStore = getMariaDBMessageStore();
+  if (mariaStore) {
+    const result = await mariaStore.getMessages(room, limit);
+    return result.messages;
+  }
+
+  // Fallback to in-memory
   return quizMessages
     .filter(m => !room || m.room === room)
     .slice(-limit);
+}
+
+export async function getMessagesWithPagination(
+  room?: string,
+  limit: number = 100,
+  before?: string
+): Promise<{ messages: QuizMessage[]; hasMore: boolean; oldestId: string | null }> {
+  const mariaStore = getMariaDBMessageStore();
+  if (mariaStore) {
+    return mariaStore.getMessages(room, limit, before);
+  }
+
+  // Fallback to in-memory with basic pagination
+  let filtered = quizMessages.filter(m => !room || m.room === room);
+
+  if (before) {
+    const idx = filtered.findIndex(m => m.id === before);
+    if (idx > 0) {
+      filtered = filtered.slice(0, idx);
+    }
+  }
+
+  const hasMore = filtered.length > limit;
+  const messages = filtered.slice(-limit);
+  const oldestId = messages.length > 0 ? messages[0].id : null;
+
+  return { messages, hasMore, oldestId };
 }
 
 // =============================================================================

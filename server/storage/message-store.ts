@@ -225,7 +225,7 @@ let messageStore: MessageStore | null = null;
 export function getMessageStore(): MessageStore {
   if (!messageStore) {
     // Default to in-memory for now
-    // TODO: Switch based on DATABASE_URL env var
+    // MariaDB store is initialized separately via initializeMessageStore()
     messageStore = new InMemoryMessageStore();
   }
   return messageStore;
@@ -233,4 +233,27 @@ export function getMessageStore(): MessageStore {
 
 export function setMessageStore(store: MessageStore): void {
   messageStore = store;
+}
+
+// =============================================================================
+// Async Initialization (for MariaDB)
+// =============================================================================
+
+export async function initializeMessageStore(): Promise<void> {
+  const dbHost = process.env.DB_HOST;
+
+  if (dbHost) {
+    // Dynamic import to avoid loading mysql2 when not needed
+    const { createMariaDBMessageStore } = await import('./mariadb-message-store.js');
+    const mariaStore = createMariaDBMessageStore();
+
+    if (mariaStore) {
+      await mariaStore.initialize();
+      console.log('[MessageStore] Using MariaDB storage');
+      // Note: MariaDB store is separate from MessageStore interface for now
+      // Quiz messages use MariaDB directly, other messages use in-memory
+    }
+  } else {
+    console.log('[MessageStore] Using in-memory storage');
+  }
 }

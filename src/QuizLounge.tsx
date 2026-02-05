@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
 // Configuration - auto-detect production
 const isProduction = window.location.hostname !== 'localhost';
@@ -47,14 +47,82 @@ function QuizLounge() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isInitialLoad = useRef(true);
+  const prevScrollHeight = useRef(0);
 
-  // Scroll to bottom when new messages arrive
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  // Get oldest message ID for pagination
+  const oldestMessageId = useMemo(() => {
+    return messages.length > 0 ? messages[0].id : null;
   }, [messages]);
+
+  // Scroll to bottom when new messages arrive (only for new messages, not loaded history)
+  useEffect(() => {
+    if (isInitialLoad.current && messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+      isInitialLoad.current = false;
+    }
+  }, [messages]);
+
+  // Maintain scroll position when loading older messages
+  useEffect(() => {
+    if (messagesContainerRef.current && prevScrollHeight.current > 0) {
+      const newScrollHeight = messagesContainerRef.current.scrollHeight;
+      const scrollDiff = newScrollHeight - prevScrollHeight.current;
+      messagesContainerRef.current.scrollTop += scrollDiff;
+      prevScrollHeight.current = 0;
+    }
+  }, [messages]);
+
+  // Load more messages when scrolling to top
+  const loadMoreMessages = useCallback(async () => {
+    if (isLoadingMore || !hasMore || !oldestMessageId) return;
+
+    setIsLoadingMore(true);
+    if (messagesContainerRef.current) {
+      prevScrollHeight.current = messagesContainerRef.current.scrollHeight;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/lounge/messages?before=${oldestMessageId}&limit=50`);
+      const data = await response.json();
+
+      if (data.messages && data.messages.length > 0) {
+        setMessages(prev => [...data.messages, ...prev]);
+        setHasMore(data.hasMore);
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error('Failed to load more messages:', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore, hasMore, oldestMessageId]);
+
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
+          loadMoreMessages();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [loadMoreMessages, hasMore, isLoadingMore]);
 
   // WebSocket connection
   const connect = useCallback(() => {
@@ -80,7 +148,12 @@ function QuizLounge() {
           case 'connected':
             if (data.agents) setAgents(data.agents);
             if (data.rooms) setRooms(data.rooms);
-            if (data.messages) setMessages(data.messages);
+            if (data.messages) {
+              setMessages(data.messages);
+              // Assume there's more history if we got a full batch
+              setHasMore(data.messages.length >= 50);
+            }
+            isInitialLoad.current = true;
             break;
 
           case 'agents':
@@ -257,7 +330,16 @@ function QuizLounge() {
 
         <div className="lounge-chat">
           <h2>Live Chat</h2>
-          <div className="lounge-messages">
+          <div className="lounge-messages" ref={messagesContainerRef}>
+            {/* Sentinel for loading more */}
+            <div ref={loadMoreRef} className="load-more-sentinel">
+              {isLoadingMore && (
+                <div className="loading-spinner">Loading older messages...</div>
+              )}
+              {!hasMore && messages.length > 0 && (
+                <div className="no-more-messages">Beginning of chat history</div>
+              )}
+            </div>
             {messages.length === 0 ? (
               <p className="empty">
                 No messages yet. Waiting for AI agents to pass the quiz and start chatting...

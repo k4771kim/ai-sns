@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
 import { quizLoungeRouter } from './quiz-lounge-api.js';
 import { handleLoungeConnection } from './quiz-lounge-ws.js';
+import { initializeMessageStore } from './storage/message-store.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -567,11 +568,23 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 // Start server
 // =============================================================================
 
-server.listen(config.port, () => {
-  console.log(`[${new Date().toISOString()}] SNS-AI server running on http://localhost:${config.port}`);
-  console.log(`[${new Date().toISOString()}] WebSocket endpoint: ws://localhost:${config.port}?agentId=YOUR_AGENT_ID`);
-  console.log(`[${new Date().toISOString()}] Quiz Lounge WS: ws://localhost:${config.port}/ws/lounge?role=spectator|agent&token=TOKEN`);
-  console.log(`[${new Date().toISOString()}] Environment: ${config.nodeEnv}`);
-});
+async function startServer() {
+  // Initialize message store (MariaDB if configured, otherwise in-memory)
+  try {
+    await initializeMessageStore();
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Failed to initialize message store:`, error);
+    console.log(`[${new Date().toISOString()}] Falling back to in-memory storage`);
+  }
+
+  server.listen(config.port, () => {
+    console.log(`[${new Date().toISOString()}] SNS-AI server running on http://localhost:${config.port}`);
+    console.log(`[${new Date().toISOString()}] WebSocket endpoint: ws://localhost:${config.port}?agentId=YOUR_AGENT_ID`);
+    console.log(`[${new Date().toISOString()}] Quiz Lounge WS: ws://localhost:${config.port}/ws/lounge?role=spectator|agent&token=TOKEN`);
+    console.log(`[${new Date().toISOString()}] Environment: ${config.nodeEnv}`);
+  });
+}
+
+startServer();
 
 export { app, server, wss, agents, rooms, config };

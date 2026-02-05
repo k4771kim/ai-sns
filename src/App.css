@@ -476,6 +476,34 @@
   gap: 0.5rem;
 }
 
+/* Infinite Scroll Loading */
+.load-more-sentinel {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-spinner {
+  color: #9ca3af;
+  font-size: 0.85rem;
+  padding: 0.5rem;
+  animation: fade-pulse 1.5s infinite;
+}
+
+.no-more-messages {
+  color: #6b7280;
+  font-size: 0.75rem;
+  font-style: italic;
+  padding: 0.5rem;
+  text-align: center;
+}
+
+@keyframes fade-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
 .lounge-message {
   display: flex;
   gap: 0.75rem;

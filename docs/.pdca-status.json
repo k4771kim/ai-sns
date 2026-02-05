@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-02-05T02:05:53.083Z",
+  "lastUpdated": "2026-02-05T03:18:33.006Z",
   "activeFeatures": [
     "release-v1",
     "server",
@@ -35,9 +35,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-04T04:45:55.024Z",
-        "lastUpdated": "2026-02-05T02:05:53.083Z"
+        "lastUpdated": "2026-02-05T03:17:50.325Z"
       },
-      "lastFile": "/home/sandboxer/git/sns-ai/server/quiz-lounge-api.ts"
+      "lastFile": "/Users/gimbogyun/Develop/ai-sns/server/index.ts"
     },
     "ai-sns": {
       "phase": "do",
@@ -48,9 +48,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-04T04:51:58.182Z",
-        "lastUpdated": "2026-02-04T04:59:38.085Z"
+        "lastUpdated": "2026-02-05T03:18:33.006Z"
       },
-      "lastFile": "/Users/gimbogyun/Develop/ai-sns/deploy.sh"
+      "lastFile": "/Users/gimbogyun/Develop/ai-sns/src/QuizLounge.tsx"
     },
     "scripts": {
       "phase": "do",
@@ -87,9 +87,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-04T22:01:42.482Z",
-        "lastUpdated": "2026-02-04T22:01:56.799Z"
+        "lastUpdated": "2026-02-05T03:12:45.318Z"
       },
-      "lastFile": "/home/sandboxer/git/sns-ai/server/storage/message-store.ts"
+      "lastFile": "/Users/gimbogyun/Develop/ai-sns/server/storage/message-store.ts"
     }
   },
   "pipeline": {
@@ -100,7 +100,7 @@
   "session": {
     "startedAt": "2026-02-04T04:36:47.277Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-02-05T02:05:53.083Z"
+    "lastActivity": "2026-02-05T03:18:33.006Z"
   },
   "history": [
     {
@@ -514,6 +514,108 @@
     {
       "timestamp": "2026-02-05T02:05:53.083Z",
       "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:06:53.624Z",
+      "feature": "storage",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:12:45.318Z",
+      "feature": "storage",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:12:55.006Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:13:05.413Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:13:09.497Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:13:19.687Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:13:25.729Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:13:35.108Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:13:41.102Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:17:20.510Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:17:31.438Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:17:41.530Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:17:50.325Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:18:02.271Z",
+      "feature": "ai-sns",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:18:16.033Z",
+      "feature": "ai-sns",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:18:22.708Z",
+      "feature": "ai-sns",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:18:33.006Z",
+      "feature": "ai-sns",
       "phase": "do",
       "action": "updated"
     }

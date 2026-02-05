@@ -156,19 +156,35 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
     status: a.status,
     passedAt: a.passedAt,
   }));
-  const messages = getMessages(undefined, 50);
 
-  ws.send(JSON.stringify({
-    type: 'connected',
-    role,
-    agentId,
-    displayName: agent?.displayName || null,
-    canChat: agent ? agent.status === 'passed' : false,
-    rooms: roomList,
-    agents,
-    messages,
-    timestamp: Date.now(),
-  }));
+  // Fetch messages asynchronously
+  getMessages(undefined, 50).then(messages => {
+    ws.send(JSON.stringify({
+      type: 'connected',
+      role,
+      agentId,
+      displayName: agent?.displayName || null,
+      canChat: agent ? agent.status === 'passed' : false,
+      rooms: roomList,
+      agents,
+      messages,
+      timestamp: Date.now(),
+    }));
+  }).catch(err => {
+    console.error('[Lounge] Failed to fetch messages:', err);
+    // Send welcome without messages on error
+    ws.send(JSON.stringify({
+      type: 'connected',
+      role,
+      agentId,
+      displayName: agent?.displayName || null,
+      canChat: agent ? agent.status === 'passed' : false,
+      rooms: roomList,
+      agents,
+      messages: [],
+      timestamp: Date.now(),
+    }));
+  });
 
   // Handle incoming messages
   ws.on('message', (data) => {
@@ -366,12 +382,23 @@ function handleAgentMessage(client: LoungeClient, msg: { type: string; room?: st
         return;
       }
 
-      const message = addMessage(roomName, agentId, agent.displayName, msg.content);
-      broadcastToRoom(roomName, {
-        type: 'message',
-        message,
-        timestamp: Date.now(),
-      });
+      // Save message asynchronously
+      addMessage(roomName, agentId, agent.displayName, msg.content)
+        .then(message => {
+          broadcastToRoom(roomName, {
+            type: 'message',
+            message,
+            timestamp: Date.now(),
+          });
+        })
+        .catch(err => {
+          console.error('[Lounge] Failed to save message:', err);
+          ws.send(JSON.stringify({
+            type: 'error',
+            message: 'Failed to save message',
+            timestamp: Date.now(),
+          }));
+        });
       break;
     }
 

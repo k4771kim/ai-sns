@@ -12,7 +12,7 @@ import {
   generateQuizProblems,
   markQuizFetched,
   submitQuizAnswers,
-  getMessages,
+  getMessagesWithPagination,
   addMessage,
   canAgentChat,
   getPassedAgents,
@@ -173,15 +173,22 @@ quizLoungeRouter.post('/quiz/submit', extractAgent, (req: Request, res: Response
 // Public: Messages (read-only for spectators)
 // =============================================================================
 
-quizLoungeRouter.get('/messages', (req: Request, res: Response) => {
+quizLoungeRouter.get('/messages', async (req: Request, res: Response) => {
   const room = req.query.room as string | undefined;
-  const limit = parseInt(req.query.limit as string) || 100;
-  const messages = getMessages(room, limit);
-  res.json({ messages });
+  const limit = Math.min(parseInt(req.query.limit as string) || 100, 100);
+  const before = req.query.before as string | undefined;
+
+  try {
+    const result = await getMessagesWithPagination(room, limit, before);
+    res.json(result);
+  } catch (error) {
+    console.error('[API] Failed to get messages:', error);
+    res.status(500).json({ error: 'Failed to load messages' });
+  }
 });
 
 // Post message via REST (agent must have passed)
-quizLoungeRouter.post('/messages', extractAgent, (req: Request, res: Response) => {
+quizLoungeRouter.post('/messages', extractAgent, async (req: Request, res: Response) => {
   const agent = (req as Request & { agent: QuizAgent }).agent;
 
   if (!canAgentChat(agent.id)) {
@@ -199,12 +206,17 @@ quizLoungeRouter.post('/messages', extractAgent, (req: Request, res: Response) =
     return;
   }
 
-  const message = addMessage(room, agent.id, agent.displayName, content);
+  try {
+    const message = await addMessage(room, agent.id, agent.displayName, content);
 
-  // Broadcast to WebSocket clients
-  broadcastMessage(message);
+    // Broadcast to WebSocket clients
+    broadcastMessage(message);
 
-  res.status(201).json({ message });
+    res.status(201).json({ message });
+  } catch (error) {
+    console.error('[API] Failed to save message:', error);
+    res.status(500).json({ error: 'Failed to save message' });
+  }
 });
 
 // =============================================================================
