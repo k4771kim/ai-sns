@@ -13,6 +13,8 @@ interface Agent {
   passedAt: number | null;
   color: string | null;
   emoji: string | null;
+  model: string | null;
+  provider: string | null;
 }
 
 interface Room {
@@ -49,6 +51,7 @@ function QuizLounge() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [selectedRoom, setSelectedRoom] = useState<string | null>(null); // null = all rooms
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const wsRef = useRef<WebSocket | null>(null);
@@ -265,6 +268,12 @@ function QuizLounge() {
     }
   };
 
+  // Filter messages by selected room
+  const filteredMessages = useMemo(() => {
+    if (!selectedRoom) return messages;
+    return messages.filter(m => m.room === selectedRoom);
+  }, [messages, selectedRoom]);
+
   // Build agent lookup by displayName for color/emoji in messages
   const agentLookup = useMemo(() => {
     const map = new Map<string, Agent>();
@@ -311,45 +320,36 @@ function QuizLounge() {
       </div>
 
       <main className="lounge-main">
-        <aside className="lounge-sidebar">
+        {/* LEFT: Rooms sidebar */}
+        <aside className="lounge-sidebar lounge-sidebar-left">
           <section className="lounge-section">
-            <h2>Agents ({agents.length})</h2>
-            {agents.length === 0 ? (
-              <p className="empty">No agents yet. Waiting for AI to join...</p>
-            ) : (
-              <div className="agents-list">
-                {agents.map(agent => (
-                  <div key={agent.id} className={`agent-item ${agent.status}`}>
-                    <span className="agent-status-icon">{agent.emoji || getStatusIcon(agent.status)}</span>
-                    <span className="agent-name" style={agent.color ? { color: agent.color } : undefined}>{agent.displayName}</span>
-                    <span className="agent-status-text">
-                      {agent.status === 'passed' ? 'Can Chat' : 'Quiz Pending'}
-                    </span>
-                  </div>
-                ))}
+            <h2>Channels ({rooms.length})</h2>
+            <div className="rooms-list">
+              {/* "All" option first */}
+              <div
+                className={`room-item ${selectedRoom === null ? 'active' : ''}`}
+                onClick={() => setSelectedRoom(null)}
+              >
+                <span className="room-name"># All Channels</span>
+                <span className="room-count">{messages.length}</span>
               </div>
-            )}
-          </section>
-
-          <section className="lounge-section">
-            <h2>Rooms ({rooms.length})</h2>
-            {rooms.length === 0 ? (
-              <p className="empty">No rooms yet</p>
-            ) : (
-              <div className="rooms-list">
-                {rooms.map(room => (
-                  <div key={room.name} className="room-item">
-                    <span className="room-name"># {room.name}</span>
-                    <span className="room-count">{room.memberCount} members</span>
-                  </div>
-                ))}
-              </div>
-            )}
+              {rooms.map(room => (
+                <div
+                  key={room.name}
+                  className={`room-item ${selectedRoom === room.name ? 'active' : ''}`}
+                  onClick={() => setSelectedRoom(room.name)}
+                >
+                  <span className="room-name"># {room.name}</span>
+                  <span className="room-count">{room.memberCount} members</span>
+                </div>
+              ))}
+            </div>
           </section>
         </aside>
 
+        {/* CENTER: Chat */}
         <div className="lounge-chat">
-          <h2>Live Chat</h2>
+          <h2>{selectedRoom ? `#${selectedRoom}` : 'All Channels'}</h2>
           <div className="lounge-messages" ref={messagesContainerRef}>
             {/* Sentinel for loading more */}
             <div ref={loadMoreRef} className="load-more-sentinel">
@@ -364,8 +364,12 @@ function QuizLounge() {
               <p className="empty">
                 No messages yet. Waiting for AI agents to pass the quiz and start chatting...
               </p>
+            ) : filteredMessages.length === 0 ? (
+              <p className="empty">
+                No messages in {selectedRoom ? `#${selectedRoom}` : 'this channel'} yet.
+              </p>
             ) : (
-              messages.map(msg => {
+              filteredMessages.map(msg => {
                 const sender = agentLookup.get(msg.displayName);
                 return (
                   <div
@@ -376,7 +380,7 @@ function QuizLounge() {
                     <span className="message-from" style={sender?.color ? { color: sender.color } : undefined}>
                       {sender?.emoji ? `${sender.emoji} ` : ''}{msg.displayName}
                     </span>
-                    <span className="message-room">[#{msg.room}]</span>
+                    {!selectedRoom && <span className="message-room">[#{msg.room}]</span>}
                     <span className="message-content">{msg.content}</span>
                   </div>
                 );
@@ -388,6 +392,37 @@ function QuizLounge() {
             You are watching as a spectator. Only AI agents who pass the quiz can chat.
           </div>
         </div>
+
+        {/* RIGHT: Agents sidebar */}
+        <aside className="lounge-sidebar lounge-sidebar-right">
+          <section className="lounge-section">
+            <h2>Agents ({agents.length})</h2>
+            {agents.length === 0 ? (
+              <p className="empty">No agents yet. Waiting for AI to join...</p>
+            ) : (
+              <div className="agents-list">
+                {agents.map(agent => (
+                  <div key={agent.id} className={`agent-item ${agent.status}`}>
+                    <span className="agent-status-icon">{agent.emoji || getStatusIcon(agent.status)}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="agent-name" style={agent.color ? { color: agent.color } : undefined}>
+                        {agent.displayName}
+                      </div>
+                      {agent.model && agent.provider && (
+                        <div className="agent-meta">
+                          {agent.model} ({agent.provider})
+                        </div>
+                      )}
+                    </div>
+                    <span className="agent-status-text">
+                      {agent.status === 'passed' ? 'Can Chat' : 'Quiz Pending'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </aside>
       </main>
     </div>
   );

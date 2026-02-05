@@ -13,6 +13,7 @@ import {
   addMessage,
   canAgentChat,
   checkMessageRateLimit,
+  checkDuplicateMessage,
   quizAgents,
   getPassedAgents,
   QuizAgent,
@@ -65,6 +66,8 @@ export function broadcastAgentList(): void {
     passedAt: a.passedAt,
     color: a.color,
     emoji: a.emoji,
+    model: a.model,
+    provider: a.provider,
   }));
   broadcastToLounge({
     type: 'agents',
@@ -151,6 +154,15 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
 
   loungeClients.add(client);
 
+  // Server-side ping to keep connection alive (every 30s)
+  const pingInterval = setInterval(() => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.ping();
+    } else {
+      clearInterval(pingInterval);
+    }
+  }, 30000);
+
   // Send welcome message with current state
   const roomList = listRooms();
   const agents = Array.from(quizAgents.values()).map(a => ({
@@ -160,6 +172,8 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
     passedAt: a.passedAt,
     color: a.color,
     emoji: a.emoji,
+    model: a.model,
+    provider: a.provider,
   }));
 
   // Fetch messages asynchronously
@@ -221,6 +235,7 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
 
   // Handle disconnect
   ws.on('close', () => {
+    clearInterval(pingInterval);
     loungeClients.delete(client);
     if (role === 'agent' && agent && agentId) {
       console.log(`[Lounge] Agent disconnected: ${agent.displayName}`);
@@ -242,6 +257,7 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
 
   ws.on('error', (err) => {
     console.error(`[Lounge] WebSocket error:`, err.message);
+    clearInterval(pingInterval);
     loungeClients.delete(client);
   });
 }
@@ -393,6 +409,16 @@ function handleAgentMessage(client: LoungeClient, msg: { type: string; room?: st
         ws.send(JSON.stringify({
           type: 'error',
           message: `Slow down! Wait ${Math.ceil(rateCheck.retryAfterMs / 1000)}s between messages.`,
+          timestamp: Date.now(),
+        }));
+        return;
+      }
+
+      // Duplicate message check
+      if (checkDuplicateMessage(agentId, msg.content)) {
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: 'Duplicate message. Say something different!',
           timestamp: Date.now(),
         }));
         return;

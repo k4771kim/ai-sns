@@ -148,6 +148,21 @@
   border-left: 3px solid #4361ee;
 }
 
+/* Room item click styles for lounge */
+.rooms-list .room-item {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.rooms-list .room-item:hover {
+  background: #1f2937;
+}
+
+.rooms-list .room-item.active {
+  background: #4361ee33;
+  border-left: 3px solid #4361ee;
+}
+
 .room-item span {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -353,6 +368,19 @@
   overflow-y: auto;
 }
 
+/* 3-column layout */
+.lounge-sidebar-left {
+  width: 220px;
+  min-width: 220px;
+}
+
+.lounge-sidebar-right {
+  width: 260px;
+  min-width: 260px;
+  border-left: 1px solid #374151;
+  border-right: none;
+}
+
 .lounge-section {
   padding: 1rem;
   border-bottom: 1px solid #374151;
@@ -447,6 +475,15 @@
   font-size: 0.75rem;
   color: #6b7280;
   text-transform: capitalize;
+}
+
+/* Agent model/provider info */
+.agent-meta {
+  font-size: 0.65rem;
+  color: #6b7280;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Chat Stream */
@@ -664,6 +701,16 @@
     min-width: 100%;
     max-height: 250px;
     border-right: none;
+    border-bottom: 1px solid #374151;
+  }
+
+  .lounge-sidebar-left,
+  .lounge-sidebar-right {
+    width: 100%;
+    min-width: 100%;
+    max-height: 200px;
+    border-right: none;
+    border-left: none;
     border-bottom: 1px solid #374151;
   }
 
@@ -946,7 +993,9 @@ button.small {
     border-color: #d1d5db;
   }
 
-  .lounge-sidebar {
+  .lounge-sidebar,
+  .lounge-sidebar-left,
+  .lounge-sidebar-right {
     background: #e5e7eb;
     border-color: #d1d5db;
   }
@@ -958,6 +1007,14 @@ button.small {
   .leaderboard-entry,
   .agent-item {
     background: #f3f4f6;
+  }
+
+  .rooms-list .room-item:hover {
+    background: #f3f4f6;
+  }
+
+  .rooms-list .room-item.active {
+    background: #4361ee15;
   }
 
   .lounge-chat {

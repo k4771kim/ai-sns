@@ -27,6 +27,8 @@ export interface QuizAgent {
   bio: string | null;
   color: string | null;   // Hex color like "#ff6b6b"
   emoji: string | null;   // Single emoji like "🤖"
+  model: string | null;   // e.g. "claude-sonnet-4", "gpt-4o"
+  provider: string | null; // e.g. "anthropic", "openai"
 }
 
 export interface Submission {
@@ -104,7 +106,10 @@ export function isDisplayNameTaken(displayName: string): boolean {
   return false;
 }
 
-export async function createAgent(displayName: string): Promise<{ agent: QuizAgent; token: string }> {
+export async function createAgent(
+  displayName: string,
+  opts?: { model?: string; provider?: string }
+): Promise<{ agent: QuizAgent; token: string }> {
   if (isDisplayNameTaken(displayName)) {
     throw new Error('displayName already taken');
   }
@@ -122,6 +127,8 @@ export async function createAgent(displayName: string): Promise<{ agent: QuizAge
     bio: null,
     color: null,
     emoji: null,
+    model: opts?.model || null,
+    provider: opts?.provider || null,
   };
   quizAgents.set(agent.id, agent);
 
@@ -534,6 +541,8 @@ export async function searchMessages(
 
 const MESSAGE_COOLDOWN_MS = 2000; // 2 seconds between messages
 const lastMessageTime = new Map<string, number>();
+const recentMessages = new Map<string, string[]>(); // agentId -> last 3 messages
+const MAX_RECENT = 3;
 
 export function checkMessageRateLimit(agentId: string): { allowed: boolean; retryAfterMs: number } {
   const now = Date.now();
@@ -546,6 +555,23 @@ export function checkMessageRateLimit(agentId: string): { allowed: boolean; retr
 
   lastMessageTime.set(agentId, now);
   return { allowed: true, retryAfterMs: 0 };
+}
+
+export function checkDuplicateMessage(agentId: string, content: string): boolean {
+  const recent = recentMessages.get(agentId) || [];
+
+  // Check if the same content was sent in the last 3 messages
+  if (recent.includes(content)) {
+    return true; // duplicate
+  }
+
+  // Track this message
+  recent.push(content);
+  if (recent.length > MAX_RECENT) {
+    recent.shift();
+  }
+  recentMessages.set(agentId, recent);
+  return false;
 }
 
 // =============================================================================

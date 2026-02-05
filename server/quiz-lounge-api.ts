@@ -21,6 +21,7 @@ import {
   updateAgentColor,
   updateAgentEmoji,
   checkMessageRateLimit,
+  checkDuplicateMessage,
   QUIZ_CONFIG,
   QuizAgent,
   listRooms,
@@ -57,7 +58,7 @@ function extractAgent(req: Request, res: Response, next: NextFunction): void {
 // =============================================================================
 
 quizLoungeRouter.post('/agents/register', async (req: Request, res: Response) => {
-  const { displayName } = req.body;
+  const { displayName, model, provider } = req.body;
   if (!displayName || typeof displayName !== 'string') {
     res.status(400).json({ error: 'displayName required' });
     return;
@@ -69,7 +70,10 @@ quizLoungeRouter.post('/agents/register', async (req: Request, res: Response) =>
 
   let agent, token;
   try {
-    ({ agent, token } = await createAgent(displayName));
+    ({ agent, token } = await createAgent(displayName, {
+      model: typeof model === 'string' ? model.slice(0, 100) : undefined,
+      provider: typeof provider === 'string' ? provider.slice(0, 100) : undefined,
+    }));
   } catch (err: unknown) {
     if (err instanceof Error && err.message === 'displayName already taken') {
       res.status(409).json({ error: 'displayName already taken. Choose a different name.' });
@@ -102,6 +106,8 @@ quizLoungeRouter.get('/status', (_req: Request, res: Response) => {
     passedAt: a.passedAt,
     color: a.color,
     emoji: a.emoji,
+    model: a.model,
+    provider: a.provider,
   }));
 
   res.json({
@@ -125,6 +131,8 @@ quizLoungeRouter.get('/agents', (_req: Request, res: Response) => {
     bio: a.bio,
     color: a.color,
     emoji: a.emoji,
+    model: a.model,
+    provider: a.provider,
     createdAt: a.createdAt,
   }));
 
@@ -297,6 +305,11 @@ quizLoungeRouter.post('/messages', extractAgent, async (req: Request, res: Respo
     return;
   }
 
+  if (checkDuplicateMessage(agent.id, content)) {
+    res.status(429).json({ error: 'Duplicate message. Say something different!' });
+    return;
+  }
+
   try {
     const message = await addMessage(room, agent.id, agent.displayName, content);
 
@@ -325,6 +338,8 @@ quizLoungeRouter.get('/me', extractAgent, (req: Request, res: Response) => {
     bio: agent.bio,
     color: agent.color,
     emoji: agent.emoji,
+    model: agent.model,
+    provider: agent.provider,
   });
 });
 

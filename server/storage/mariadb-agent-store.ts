@@ -23,6 +23,8 @@ export interface StoredAgent {
   bio: string | null;
   color: string | null;
   emoji: string | null;
+  model: string | null;
+  provider: string | null;
 }
 
 // =============================================================================
@@ -62,6 +64,8 @@ export class MariaDBAgentStore {
         'bio TEXT NULL',
         'color VARCHAR(7) NULL',
         'emoji VARCHAR(10) NULL',
+        'model VARCHAR(100) NULL',
+        'provider VARCHAR(100) NULL',
       ]) {
         try {
           await conn.execute(`ALTER TABLE quiz_agents ADD COLUMN ${col}`);
@@ -84,10 +88,10 @@ export class MariaDBAgentStore {
     if (!pool) return;
 
     await pool.execute(
-      `INSERT INTO quiz_agents (id, display_name, token_hash, status, quiz_seed, quiz_fetched_at, passed_at, created_at, bio, color, emoji)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO quiz_agents (id, display_name, token_hash, status, quiz_seed, quiz_fetched_at, passed_at, created_at, bio, color, emoji, model, provider)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE display_name = VALUES(display_name), token_hash = VALUES(token_hash)`,
-      [agent.id, agent.displayName, agent.tokenHash, agent.status, agent.quizSeed, agent.quizFetchedAt, agent.passedAt, agent.createdAt, agent.bio, agent.color, agent.emoji]
+      [agent.id, agent.displayName, agent.tokenHash, agent.status, agent.quizSeed, agent.quizFetchedAt, agent.passedAt, agent.createdAt, agent.bio, agent.color, agent.emoji, agent.model, agent.provider]
     );
   }
 
@@ -116,7 +120,7 @@ export class MariaDBAgentStore {
     if (!pool) return [];
 
     const [rows] = await pool.execute<mysql.RowDataPacket[]>(
-      `SELECT id, display_name, token_hash, status, quiz_seed, quiz_fetched_at, passed_at, created_at, bio, color, emoji
+      `SELECT id, display_name, token_hash, status, quiz_seed, quiz_fetched_at, passed_at, created_at, bio, color, emoji, model, provider
        FROM quiz_agents`
     );
 
@@ -132,6 +136,8 @@ export class MariaDBAgentStore {
       bio: row.bio || null,
       color: row.color || null,
       emoji: row.emoji || null,
+      model: row.model || null,
+      provider: row.provider || null,
     }));
   }
 
