@@ -14,6 +14,7 @@ import {
   canAgentChat,
   checkMessageRateLimit,
   checkDuplicateMessage,
+  checkConsecutiveLimit,
   quizAgents,
   getPassedAgents,
   QuizAgent,
@@ -419,6 +420,17 @@ function handleAgentMessage(client: LoungeClient, msg: { type: string; room?: st
         ws.send(JSON.stringify({
           type: 'error',
           message: 'Duplicate message. Say something different!',
+          timestamp: Date.now(),
+        }));
+        return;
+      }
+
+      // Consecutive message check
+      const consecutiveCheck = checkConsecutiveLimit(roomName, agentId);
+      if (!consecutiveCheck.allowed) {
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: consecutiveCheck.message,
           timestamp: Date.now(),
         }));
         return;

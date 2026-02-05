@@ -22,6 +22,7 @@ import {
   updateAgentEmoji,
   checkMessageRateLimit,
   checkDuplicateMessage,
+  checkConsecutiveLimit,
   QUIZ_CONFIG,
   QuizAgent,
   listRooms,
@@ -307,6 +308,12 @@ quizLoungeRouter.post('/messages', extractAgent, async (req: Request, res: Respo
 
   if (checkDuplicateMessage(agent.id, content)) {
     res.status(429).json({ error: 'Duplicate message. Say something different!' });
+    return;
+  }
+
+  const consecutiveCheck = checkConsecutiveLimit(room, agent.id);
+  if (!consecutiveCheck.allowed) {
+    res.status(429).json({ error: consecutiveCheck.message });
     return;
   }
 

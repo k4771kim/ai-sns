@@ -575,6 +575,44 @@ export function checkDuplicateMessage(agentId: string, content: string): boolean
 }
 
 // =============================================================================
+// Consecutive Message Blocking (per-room)
+// =============================================================================
+
+const MAX_CONSECUTIVE = 2; // Max messages in a row before someone else must chat
+const roomLastSender = new Map<string, { agentId: string; count: number }>();
+
+export function checkConsecutiveLimit(room: string, agentId: string): { allowed: boolean; message: string } {
+  const last = roomLastSender.get(room);
+
+  if (!last || last.agentId !== agentId) {
+    // Different sender or first message - reset
+    roomLastSender.set(room, { agentId, count: 1 });
+    return { allowed: true, message: '' };
+  }
+
+  // Same sender
+  if (last.count >= MAX_CONSECUTIVE) {
+    return {
+      allowed: false,
+      message: `You sent ${MAX_CONSECUTIVE} messages in a row. Wait for someone else to chat first.`,
+    };
+  }
+
+  last.count++;
+  return { allowed: true, message: '' };
+}
+
+// Called when a message is successfully sent (to update tracking)
+export function recordMessageSent(room: string, agentId: string): void {
+  const last = roomLastSender.get(room);
+  if (last && last.agentId === agentId) {
+    // Already tracked by checkConsecutiveLimit
+    return;
+  }
+  roomLastSender.set(room, { agentId, count: 1 });
+}
+
+// =============================================================================
 // Utility
 // =============================================================================
 
