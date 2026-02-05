@@ -50,7 +50,10 @@ export interface QuizMessage {
 
 export interface LoungeRoom {
   name: string;
+  description: string;  // Visible to everyone
+  prompt: string;       // Instructions sent to AI agents when they join
   members: Set<string>;
+  createdBy: string | null;  // agentId or null for system rooms
   createdAt: number;
 }
 
@@ -80,12 +83,40 @@ export const submissions = new Map<string, Submission>();
 export const quizMessages: QuizMessage[] = [];
 export const loungeRooms = new Map<string, LoungeRoom>();
 
-// Initialize default room
-loungeRooms.set('general', {
-  name: 'general',
-  members: new Set(),
-  createdAt: Date.now(),
-});
+// Initialize default rooms
+const DEFAULT_ROOMS: Array<{ name: string; description: string; prompt: string }> = [
+  {
+    name: 'general',
+    description: 'General chat — talk about anything',
+    prompt: 'This is the general chat room. Feel free to discuss any topic. Be friendly and engaging!',
+  },
+  {
+    name: 'ideas',
+    description: 'Brainstorm and share creative ideas',
+    prompt: 'This is the brainstorming room. Share creative ideas, build on others\' ideas, and think outside the box. Be constructive and encouraging. Try to come up with novel and interesting concepts.',
+  },
+  {
+    name: 'debate',
+    description: 'Friendly debates on interesting topics',
+    prompt: 'This is the debate room. Pick a side and argue your position respectfully. Use logic and evidence. Be persuasive but fair. Challenge ideas, not people.',
+  },
+  {
+    name: 'code',
+    description: 'Talk about programming and tech',
+    prompt: 'This is the coding room. Discuss programming languages, algorithms, frameworks, and tech trends. Share code snippets, ask technical questions, and help each other solve problems.',
+  },
+];
+
+for (const room of DEFAULT_ROOMS) {
+  loungeRooms.set(room.name, {
+    name: room.name,
+    description: room.description,
+    prompt: room.prompt,
+    members: new Set(),
+    createdBy: null,
+    createdAt: Date.now(),
+  });
+}
 
 // =============================================================================
 // Token Management
@@ -390,7 +421,10 @@ export function joinRoom(roomName: string, agentId: string): LoungeRoom {
   if (!room) {
     room = {
       name: roomName,
+      description: '',
+      prompt: '',
       members: new Set(),
+      createdBy: agentId,
       createdAt: Date.now(),
     };
     loungeRooms.set(roomName, room);
@@ -403,7 +437,7 @@ export function leaveRoom(roomName: string, agentId: string): boolean {
   const room = loungeRooms.get(roomName);
   if (!room) return false;
   room.members.delete(agentId);
-  if (room.members.size === 0 && roomName !== 'general') {
+  if (room.members.size === 0 && room.createdBy !== null) {
     loungeRooms.delete(roomName);
   }
   return true;
@@ -415,7 +449,7 @@ export function leaveAllRooms(agentId: string): string[] {
     if (room.members.has(agentId)) {
       room.members.delete(agentId);
       leftRooms.push(name);
-      if (room.members.size === 0 && name !== 'general') {
+      if (room.members.size === 0 && room.createdBy !== null) {
         loungeRooms.delete(name);
       }
     }
@@ -438,11 +472,82 @@ export function getAgentRooms(agentId: string): string[] {
   return rooms;
 }
 
-export function listRooms(): Array<{ name: string; memberCount: number }> {
+export function listRooms(): Array<{ name: string; description: string; memberCount: number }> {
   return Array.from(loungeRooms.values()).map(r => ({
     name: r.name,
+    description: r.description,
     memberCount: r.members.size,
   }));
+}
+
+export function getRoomInfo(roomName: string): { name: string; description: string; prompt: string; memberCount: number; createdBy: string | null; createdAt: number } | null {
+  const room = loungeRooms.get(roomName);
+  if (!room) return null;
+  return {
+    name: room.name,
+    description: room.description,
+    prompt: room.prompt,
+    memberCount: room.members.size,
+    createdBy: room.createdBy,
+    createdAt: room.createdAt,
+  };
+}
+
+export function createRoom(
+  name: string,
+  description: string,
+  prompt: string,
+  createdBy: string
+): { success: boolean; error?: string; room?: LoungeRoom } {
+  if (!name || name.length > 50) {
+    return { success: false, error: 'Room name must be 1-50 characters' };
+  }
+  if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+    return { success: false, error: 'Room name can only contain letters, numbers, hyphens, and underscores' };
+  }
+  if (loungeRooms.has(name)) {
+    return { success: false, error: 'Room already exists' };
+  }
+  if (description.length > 200) {
+    return { success: false, error: 'Description must be 200 characters or less' };
+  }
+  if (prompt.length > 1000) {
+    return { success: false, error: 'Prompt must be 1000 characters or less' };
+  }
+
+  const room: LoungeRoom = {
+    name,
+    description,
+    prompt,
+    members: new Set(),
+    createdBy,
+    createdAt: Date.now(),
+  };
+  loungeRooms.set(name, room);
+  return { success: true, room };
+}
+
+export function updateRoom(
+  name: string,
+  updates: { description?: string; prompt?: string }
+): { success: boolean; error?: string } {
+  const room = loungeRooms.get(name);
+  if (!room) {
+    return { success: false, error: 'Room not found' };
+  }
+  if (updates.description !== undefined) {
+    if (updates.description.length > 200) {
+      return { success: false, error: 'Description must be 200 characters or less' };
+    }
+    room.description = updates.description;
+  }
+  if (updates.prompt !== undefined) {
+    if (updates.prompt.length > 1000) {
+      return { success: false, error: 'Prompt must be 1000 characters or less' };
+    }
+    room.prompt = updates.prompt;
+  }
+  return { success: true };
 }
 
 // =============================================================================

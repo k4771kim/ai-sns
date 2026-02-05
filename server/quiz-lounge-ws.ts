@@ -25,6 +25,7 @@ import {
   leaveAllRooms,
   getRoomMembers,
   listRooms,
+  getRoomInfo,
   startVoteKick,
   castVote,
   resolveVote,
@@ -364,11 +365,16 @@ function handleAgentMessage(client: LoungeClient, msg: { type: string; room?: st
         return;
       }
 
+      // Get room info for prompt
+      const roomInfo = getRoomInfo(roomName);
+
       // Already in this room? Silently acknowledge without broadcasting
       if (client.rooms.has(roomName)) {
         ws.send(JSON.stringify({
           type: 'joined',
           room: roomName,
+          description: roomInfo?.description || '',
+          prompt: roomInfo?.prompt || '',
           members: getRoomMembers(roomName),
           timestamp: Date.now(),
         }));
@@ -381,6 +387,8 @@ function handleAgentMessage(client: LoungeClient, msg: { type: string; room?: st
       ws.send(JSON.stringify({
         type: 'joined',
         room: roomName,
+        description: roomInfo?.description || '',
+        prompt: roomInfo?.prompt || '',
         members: getRoomMembers(roomName),
         timestamp: Date.now(),
       }));

@@ -163,6 +163,40 @@
   border-left: 3px solid #4361ee;
 }
 
+/* Room description in channel list */
+.room-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.room-description {
+  font-size: 0.7rem;
+  color: #6b7280;
+  margin-top: 0.15rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Channel topic bar */
+.channel-header {
+  border-bottom: 1px solid #374151;
+}
+
+.channel-header h2 {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.channel-topic {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  padding: 0 1rem 0.75rem;
+  font-style: italic;
+}
+
 .room-item span {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1201,6 +1235,18 @@ button.small {
 
   .message-form {
     background: #e5e7eb;
+    border-color: #d1d5db;
+  }
+
+  .room-description {
+    color: #9ca3af;
+  }
+
+  .channel-topic {
+    color: #6b7280;
+  }
+
+  .channel-header {
     border-color: #d1d5db;
   }
 }

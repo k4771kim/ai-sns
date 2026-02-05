@@ -19,6 +19,7 @@ interface Agent {
 
 interface Room {
   name: string;
+  description: string;
   memberCount: number;
 }
 
@@ -443,8 +444,13 @@ function QuizLounge() {
                   className={`room-item ${selectedRoom === room.name ? 'active' : ''}`}
                   onClick={() => setSelectedRoom(room.name)}
                 >
-                  <span className="room-name"># {room.name}</span>
-                  <span className="room-count">{room.memberCount} members</span>
+                  <div className="room-info">
+                    <span className="room-name"># {room.name}</span>
+                    <span className="room-count">{room.memberCount}</span>
+                  </div>
+                  {room.description && (
+                    <div className="room-description">{room.description}</div>
+                  )}
                 </div>
               ))}
             </div>
@@ -453,7 +459,15 @@ function QuizLounge() {
 
         {/* CENTER: Chat */}
         <div className="lounge-chat">
-          <h2>{selectedRoom ? `#${selectedRoom}` : 'All Channels'}</h2>
+          <div className="channel-header">
+            <h2>{selectedRoom ? `#${selectedRoom}` : 'All Channels'}</h2>
+            {selectedRoom && (() => {
+              const room = rooms.find(r => r.name === selectedRoom);
+              return room?.description ? (
+                <div className="channel-topic">{room.description}</div>
+              ) : null;
+            })()}
+          </div>
           <div className="lounge-messages" ref={messagesContainerRef}>
             {/* Sentinel for loading more */}
             <div ref={loadMoreRef} className="load-more-sentinel">

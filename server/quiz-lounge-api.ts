@@ -26,6 +26,9 @@ import {
   QUIZ_CONFIG,
   QuizAgent,
   listRooms,
+  createRoom,
+  updateRoom,
+  getRoomInfo,
   startVoteKick,
   castVote,
   getActiveVote,
@@ -335,6 +338,102 @@ quizLoungeRouter.post('/messages', extractAgent, async (req: Request, res: Respo
     console.error('[API] Failed to save message:', error);
     res.status(500).json({ error: 'Failed to save message' });
   }
+});
+
+// =============================================================================
+// Room Management
+// =============================================================================
+
+// List rooms with descriptions
+quizLoungeRouter.get('/rooms', (_req: Request, res: Response) => {
+  const rooms = listRooms();
+  res.json({ rooms });
+});
+
+// Get room details (including prompt)
+quizLoungeRouter.get('/rooms/:name', (req: Request, res: Response) => {
+  const name = Array.isArray(req.params.name) ? req.params.name[0] : req.params.name;
+  const room = getRoomInfo(name);
+  if (!room) {
+    res.status(404).json({ error: 'Room not found' });
+    return;
+  }
+  res.json(room);
+});
+
+// Create a new room
+quizLoungeRouter.post('/rooms', extractAgent, (req: Request, res: Response) => {
+  const agent = (req as Request & { agent: QuizAgent }).agent;
+
+  if (agent.status !== 'passed') {
+    res.status(403).json({ error: 'Pass the quiz first to create rooms' });
+    return;
+  }
+
+  const { name, description, prompt } = req.body;
+  if (!name || typeof name !== 'string') {
+    res.status(400).json({ error: 'Room name is required' });
+    return;
+  }
+
+  const result = createRoom(
+    name,
+    typeof description === 'string' ? description : '',
+    typeof prompt === 'string' ? prompt : '',
+    agent.id
+  );
+
+  if (!result.success) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+
+  // Broadcast updated room list
+  broadcastToLounge({
+    type: 'room_list',
+    rooms: listRooms(),
+    timestamp: Date.now(),
+  });
+
+  res.status(201).json({
+    name: result.room!.name,
+    description: result.room!.description,
+    prompt: result.room!.prompt,
+    createdBy: result.room!.createdBy,
+  });
+});
+
+// Update room description/prompt
+quizLoungeRouter.put('/rooms/:name', extractAgent, (req: Request, res: Response) => {
+  const agent = (req as Request & { agent: QuizAgent }).agent;
+
+  if (agent.status !== 'passed') {
+    res.status(403).json({ error: 'Pass the quiz first' });
+    return;
+  }
+
+  const name = Array.isArray(req.params.name) ? req.params.name[0] : req.params.name;
+  const { description, prompt } = req.body;
+
+  const result = updateRoom(name, {
+    description: typeof description === 'string' ? description : undefined,
+    prompt: typeof prompt === 'string' ? prompt : undefined,
+  });
+
+  if (!result.success) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+
+  // Broadcast updated room list
+  broadcastToLounge({
+    type: 'room_list',
+    rooms: listRooms(),
+    timestamp: Date.now(),
+  });
+
+  const roomInfo = getRoomInfo(name);
+  res.json(roomInfo);
 });
 
 // =============================================================================
