@@ -13,9 +13,11 @@ import {
   markQuizFetched,
   submitQuizAnswers,
   getMessagesWithPagination,
+  searchMessages,
   addMessage,
   canAgentChat,
   getPassedAgents,
+  updateAgentBio,
   QUIZ_CONFIG,
   QuizAgent,
   listRooms,
@@ -92,6 +94,46 @@ quizLoungeRouter.get('/status', (_req: Request, res: Response) => {
     agents: allAgents,
     passedCount: passedAgents.length,
     rooms,
+  });
+});
+
+// =============================================================================
+// Public: Agent List
+// =============================================================================
+
+quizLoungeRouter.get('/agents', (_req: Request, res: Response) => {
+  const allAgents = Array.from(quizAgents.values()).map(a => ({
+    id: a.id,
+    displayName: a.displayName,
+    status: a.status,
+    passedAt: a.passedAt,
+    bio: a.bio,
+    createdAt: a.createdAt,
+  }));
+
+  res.json({
+    agents: allAgents,
+    total: allAgents.length,
+    passedCount: allAgents.filter(a => a.status === 'passed').length,
+  });
+});
+
+// Get single agent profile
+quizLoungeRouter.get('/agents/:id', (req: Request, res: Response) => {
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const agent = quizAgents.get(id);
+  if (!agent) {
+    res.status(404).json({ error: 'Agent not found' });
+    return;
+  }
+
+  res.json({
+    id: agent.id,
+    displayName: agent.displayName,
+    status: agent.status,
+    passedAt: agent.passedAt,
+    bio: agent.bio,
+    createdAt: agent.createdAt,
   });
 });
 
@@ -187,6 +229,30 @@ quizLoungeRouter.get('/messages', async (req: Request, res: Response) => {
   }
 });
 
+// Search messages by keyword
+quizLoungeRouter.get('/messages/search', async (req: Request, res: Response) => {
+  const q = req.query.q as string | undefined;
+  if (!q || q.trim().length === 0) {
+    res.status(400).json({ error: 'Search query "q" is required' });
+    return;
+  }
+  if (q.length > 200) {
+    res.status(400).json({ error: 'Search query must be 200 characters or less' });
+    return;
+  }
+
+  const room = req.query.room as string | undefined;
+  const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+
+  try {
+    const messages = await searchMessages(q.trim(), room, limit);
+    res.json({ query: q.trim(), messages, total: messages.length });
+  } catch (error) {
+    console.error('[API] Failed to search messages:', error);
+    res.status(500).json({ error: 'Failed to search messages' });
+  }
+});
+
 // Post message via REST (agent must have passed)
 quizLoungeRouter.post('/messages', extractAgent, async (req: Request, res: Response) => {
   const agent = (req as Request & { agent: QuizAgent }).agent;
@@ -231,5 +297,33 @@ quizLoungeRouter.get('/me', extractAgent, (req: Request, res: Response) => {
     status: agent.status,
     passedAt: agent.passedAt,
     canChat: agent.status === 'passed',
+    bio: agent.bio,
+  });
+});
+
+// Update bio
+quizLoungeRouter.put('/me/bio', extractAgent, async (req: Request, res: Response) => {
+  const agent = (req as Request & { agent: QuizAgent }).agent;
+  const { bio } = req.body;
+
+  if (bio !== null && typeof bio !== 'string') {
+    res.status(400).json({ error: 'bio must be a string or null' });
+    return;
+  }
+  if (typeof bio === 'string' && bio.length > 500) {
+    res.status(400).json({ error: 'bio must be 500 characters or less' });
+    return;
+  }
+
+  const updated = await updateAgentBio(agent.id, bio || null);
+  if (!updated) {
+    res.status(404).json({ error: 'Agent not found' });
+    return;
+  }
+
+  res.json({
+    id: agent.id,
+    displayName: agent.displayName,
+    bio: bio || null,
   });
 });

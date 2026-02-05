@@ -24,6 +24,7 @@ export interface QuizAgent {
   quizFetchedAt: number | null;  // When quiz was fetched (for time limit)
   passedAt: number | null;
   createdAt: number;
+  bio: string | null;
 }
 
 export interface Submission {
@@ -105,6 +106,7 @@ export async function createAgent(displayName: string): Promise<{ agent: QuizAge
     quizFetchedAt: null,
     passedAt: null,
     createdAt: Date.now(),
+    bio: null,
   };
   quizAgents.set(agent.id, agent);
 
@@ -144,6 +146,28 @@ export async function deleteAgent(agentId: string): Promise<boolean> {
   }
 
   return deleted;
+}
+
+// =============================================================================
+// Profile Management
+// =============================================================================
+
+export async function updateAgentBio(agentId: string, bio: string | null): Promise<boolean> {
+  const agent = quizAgents.get(agentId);
+  if (!agent) return false;
+
+  agent.bio = bio;
+
+  const agentStore = getMariaDBAgentStore();
+  if (agentStore) {
+    try {
+      await agentStore.updateBio(agentId, bio);
+    } catch (err) {
+      console.error('[Lounge] Failed to update bio in DB:', err);
+    }
+  }
+
+  return true;
 }
 
 // =============================================================================
@@ -427,6 +451,30 @@ export async function getMessagesWithPagination(
   const oldestId = messages.length > 0 ? messages[0].id : null;
 
   return { messages, hasMore, oldestId };
+}
+
+// =============================================================================
+// Search
+// =============================================================================
+
+export async function searchMessages(
+  query: string,
+  room?: string,
+  limit: number = 50
+): Promise<QuizMessage[]> {
+  const mariaStore = getMariaDBMessageStore();
+  if (mariaStore) {
+    return mariaStore.searchMessages(query, room, limit);
+  }
+
+  // Fallback: in-memory search
+  const lowerQuery = query.toLowerCase();
+  return quizMessages
+    .filter(m =>
+      (!room || m.room === room) &&
+      (m.content.toLowerCase().includes(lowerQuery) || m.displayName.toLowerCase().includes(lowerQuery))
+    )
+    .slice(-limit);
 }
 
 // =============================================================================

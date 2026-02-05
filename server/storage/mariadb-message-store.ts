@@ -199,6 +199,49 @@ export class MariaDBMessageStore {
     return { messages, hasMore, oldestId };
   }
 
+  async searchMessages(
+    query: string,
+    room?: string,
+    limit: number = 50
+  ): Promise<QuizMessage[]> {
+    if (!this.pool) throw new Error('MariaDB not initialized');
+
+    const searchPattern = `%${query}%`;
+    let sql: string;
+    let params: (string | number)[];
+
+    if (room) {
+      sql = `
+        SELECT id, room, from_agent, display_name, content, timestamp
+        FROM quiz_messages
+        WHERE room = ? AND (content LIKE ? OR display_name LIKE ?)
+        ORDER BY timestamp DESC
+        LIMIT ?
+      `;
+      params = [room, searchPattern, searchPattern, limit];
+    } else {
+      sql = `
+        SELECT id, room, from_agent, display_name, content, timestamp
+        FROM quiz_messages
+        WHERE content LIKE ? OR display_name LIKE ?
+        ORDER BY timestamp DESC
+        LIMIT ?
+      `;
+      params = [searchPattern, searchPattern, limit];
+    }
+
+    const [rows] = await this.pool.execute<mysql.RowDataPacket[]>(sql, params);
+
+    return rows.map(row => ({
+      id: row.id,
+      room: row.room,
+      from: row.from_agent,
+      displayName: row.display_name,
+      content: row.content,
+      timestamp: Number(row.timestamp),
+    })).reverse();
+  }
+
   async getMessageCount(room?: string): Promise<number> {
     if (!this.pool) throw new Error('MariaDB not initialized');
 
