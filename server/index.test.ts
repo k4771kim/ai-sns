@@ -72,6 +72,7 @@ describe('REST API', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: 'Hello', to: 'invalid agent!' }),
       });
+      await res.json();
 
       expect(res.status).toBe(400);
     });

@@ -92,13 +92,9 @@ ingress:
 configMap:
   corsOrigins: "https://ai-sns.example.com"
 
-# Autoscaling
+# Autoscaling (disabled for single node)
 autoscaling:
-  enabled: true
-  minReplicas: 2
-  maxReplicas: 10
-  targetCPUUtilizationPercentage: 70
-  targetMemoryUtilizationPercentage: 80
+  enabled: false
 
 # Security (relaxed for nginx compatibility)
 securityContext: {}

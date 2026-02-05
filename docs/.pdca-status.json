@@ -1,11 +1,9 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-02-04T14:03:21.375Z",
+  "lastUpdated": "2026-02-05T00:21:10.134Z",
   "activeFeatures": [
     "server",
-    "ai-sns",
-    "scripts",
-    "sns-ai"
+    "ai-sns"
   ],
   "primaryFeature": "server",
   "features": {
@@ -18,9 +16,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-04T04:45:55.024Z",
-        "lastUpdated": "2026-02-04T11:44:21.521Z"
+        "lastUpdated": "2026-02-04T23:07:28.998Z"
       },
-      "lastFile": "/home/sandboxer/git/sns-ai/server/quiz-lounge-api.ts"
+      "lastFile": "/Users/gimbogyun/Develop/ai-sns/server/index.ts"
     },
     "ai-sns": {
       "phase": "do",
@@ -31,35 +29,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-04T04:51:58.182Z",
-        "lastUpdated": "2026-02-04T04:59:38.085Z"
+        "lastUpdated": "2026-02-05T00:21:10.134Z"
       },
       "lastFile": "/Users/gimbogyun/Develop/ai-sns/deploy.sh"
-    },
-    "scripts": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-02-04T11:19:51.372Z",
-        "lastUpdated": "2026-02-04T11:20:23.860Z"
-      },
-      "lastFile": "/home/sandboxer/git/sns-ai/scripts/admin-setup.ts"
-    },
-    "sns-ai": {
-      "phase": "do",
-      "phaseNumber": 3,
-      "matchRate": null,
-      "iterationCount": 0,
-      "requirements": [],
-      "documents": {},
-      "timestamps": {
-        "started": "2026-02-04T11:24:08.464Z",
-        "lastUpdated": "2026-02-04T14:03:21.375Z"
-      },
-      "lastFile": "/home/sandboxer/git/sns-ai/src/QuizLounge.tsx"
     }
   },
   "pipeline": {
@@ -70,7 +42,7 @@
   "session": {
     "startedAt": "2026-02-04T04:36:47.277Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-02-04T14:03:21.375Z"
+    "lastActivity": "2026-02-05T00:21:10.134Z"
   },
   "history": [
     {
@@ -92,290 +64,74 @@
       "action": "updated"
     },
     {
-      "timestamp": "2026-02-04T11:17:01.598Z",
+      "timestamp": "2026-02-04T23:06:13.025Z",
+      "feature": "ai-sns",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-04T23:06:26.191Z",
       "feature": "server",
       "phase": "do",
       "action": "updated"
     },
     {
-      "timestamp": "2026-02-04T11:17:09.676Z",
+      "timestamp": "2026-02-04T23:06:32.839Z",
       "feature": "server",
       "phase": "do",
       "action": "updated"
     },
     {
-      "timestamp": "2026-02-04T11:17:17.185Z",
+      "timestamp": "2026-02-04T23:06:33.485Z",
       "feature": "server",
       "phase": "do",
       "action": "updated"
     },
     {
-      "timestamp": "2026-02-04T11:17:27.481Z",
+      "timestamp": "2026-02-04T23:06:33.758Z",
+      "feature": "ai-sns",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-04T23:07:12.919Z",
       "feature": "server",
       "phase": "do",
       "action": "updated"
     },
     {
-      "timestamp": "2026-02-04T11:18:26.563Z",
+      "timestamp": "2026-02-04T23:07:15.714Z",
       "feature": "server",
       "phase": "do",
       "action": "updated"
     },
     {
-      "timestamp": "2026-02-04T11:18:33.309Z",
+      "timestamp": "2026-02-04T23:07:19.857Z",
       "feature": "server",
       "phase": "do",
       "action": "updated"
     },
     {
-      "timestamp": "2026-02-04T11:18:39.435Z",
+      "timestamp": "2026-02-04T23:07:21.152Z",
       "feature": "server",
       "phase": "do",
       "action": "updated"
     },
     {
-      "timestamp": "2026-02-04T11:18:44.768Z",
+      "timestamp": "2026-02-04T23:07:21.654Z",
       "feature": "server",
       "phase": "do",
       "action": "updated"
     },
     {
-      "timestamp": "2026-02-04T11:18:49.842Z",
+      "timestamp": "2026-02-04T23:07:28.998Z",
       "feature": "server",
       "phase": "do",
       "action": "updated"
     },
     {
-      "timestamp": "2026-02-04T11:18:54.611Z",
-      "feature": "server",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:18:59.288Z",
-      "feature": "server",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:19:51.372Z",
-      "feature": "scripts",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:20:23.860Z",
-      "feature": "scripts",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:24:08.464Z",
-      "feature": "sns-ai",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:24:16.157Z",
-      "feature": "sns-ai",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:24:22.806Z",
-      "feature": "sns-ai",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:24:30.467Z",
-      "feature": "sns-ai",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:25:17.106Z",
-      "feature": "sns-ai",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:25:35.393Z",
-      "feature": "sns-ai",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:25:41.711Z",
-      "feature": "sns-ai",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:25:46.793Z",
-      "feature": "sns-ai",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:26:03.965Z",
-      "feature": "sns-ai",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:27:08.733Z",
-      "feature": "sns-ai",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:27:16.356Z",
-      "feature": "sns-ai",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:27:25.120Z",
-      "feature": "sns-ai",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:27:59.503Z",
-      "feature": "sns-ai",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:28:07.583Z",
-      "feature": "sns-ai",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:28:20.704Z",
-      "feature": "sns-ai",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:28:25.225Z",
-      "feature": "sns-ai",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:28:34.549Z",
-      "feature": "sns-ai",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:33:45.392Z",
-      "feature": "server",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:33:51.207Z",
-      "feature": "server",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:34:04.000Z",
-      "feature": "server",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:34:15.622Z",
-      "feature": "server",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:34:21.396Z",
-      "feature": "server",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:34:34.101Z",
-      "feature": "server",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:34:42.252Z",
-      "feature": "server",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:34:55.002Z",
-      "feature": "server",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:35:19.774Z",
-      "feature": "server",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:35:35.008Z",
-      "feature": "server",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:35:46.321Z",
-      "feature": "server",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:36:00.253Z",
-      "feature": "server",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:36:10.888Z",
-      "feature": "server",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:42:04.493Z",
-      "feature": "sns-ai",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:42:11.041Z",
-      "feature": "sns-ai",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:44:02.217Z",
-      "feature": "server",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T11:44:21.521Z",
-      "feature": "server",
-      "phase": "do",
-      "action": "updated"
-    },
-    {
-      "timestamp": "2026-02-04T14:03:21.375Z",
-      "feature": "sns-ai",
+      "timestamp": "2026-02-05T00:21:10.134Z",
+      "feature": "ai-sns",
       "phase": "do",
       "action": "updated"
     }

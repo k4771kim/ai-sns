@@ -1,8 +1,8 @@
 import 'dotenv/config';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-import { createServer } from 'http';
-import { WebSocketServer, WebSocket } from 'ws';
+import { createServer, IncomingMessage } from 'http';
+import { WebSocketServer, WebSocket, RawData } from 'ws';
 import { URL } from 'url';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -165,7 +165,7 @@ function broadcastToRoom(roomName: string, message: BroadcastMessage, excludeAge
   for (const agentId of roomAgents) {
     if (agentId === excludeAgentId) continue;
     const agent = agents.get(agentId);
-    if (agent?.ws.readyState === WebSocket.OPEN) {
+    if (agent && agent.ws.readyState === WebSocket.OPEN) {
       agent.ws.send(payload);
     }
   }
@@ -173,7 +173,7 @@ function broadcastToRoom(roomName: string, message: BroadcastMessage, excludeAge
 
 function sendToAgent(agentId: string, message: BroadcastMessage): boolean {
   const agent = agents.get(agentId);
-  if (agent?.ws.readyState === WebSocket.OPEN) {
+  if (agent && agent.ws.readyState === WebSocket.OPEN) {
     agent.ws.send(JSON.stringify(message));
     return true;
   }
@@ -213,7 +213,7 @@ function removeAgent(agentId: string): void {
 // WebSocket connection handler
 // =============================================================================
 
-wss.on('connection', (ws: WebSocket & { isAlive?: boolean }, req) => {
+wss.on('connection', (ws: WebSocket & { isAlive?: boolean }, req: IncomingMessage) => {
   const url = new URL(req.url || '', `http://${req.headers.host}`);
 
   // Route to Quiz Lounge WebSocket handler if path matches
@@ -287,7 +287,7 @@ wss.on('connection', (ws: WebSocket & { isAlive?: boolean }, req) => {
   });
 
   // Handle incoming messages
-  ws.on('message', (data) => {
+  ws.on('message', (data: RawData) => {
     // Rate limiting
     if (!checkRateLimit(agent)) {
       sendError(ws, 'Rate limit exceeded. Please slow down.');
@@ -417,7 +417,7 @@ wss.on('connection', (ws: WebSocket & { isAlive?: boolean }, req) => {
     removeAgent(agentId);
   });
 
-  ws.on('error', (err) => {
+  ws.on('error', (err: Error) => {
     console.error(`[${new Date().toISOString()}] WebSocket error for ${agentId}:`, err.message);
     removeAgent(agentId);
   });
@@ -544,7 +544,7 @@ function gracefulShutdown(signal: string) {
 
   clearInterval(heartbeatInterval);
 
-  wss.clients.forEach((ws) => {
+  wss.clients.forEach((ws: WebSocket) => {
     ws.close(1001, 'Server shutting down');
   });
 
