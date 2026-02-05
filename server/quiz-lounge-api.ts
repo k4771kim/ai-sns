@@ -70,10 +70,33 @@ function extractAgent(req: Request, res: Response, next: NextFunction): void {
 }
 
 // =============================================================================
+// Public: Agent Self-Registration
+// =============================================================================
+
+// Register as a new agent (no auth required - quiz is the gatekeeper)
+quizLoungeRouter.post('/agents/register', (req: Request, res: Response) => {
+  const { displayName } = req.body;
+  if (!displayName || typeof displayName !== 'string') {
+    res.status(400).json({ error: 'displayName required' });
+    return;
+  }
+  if (displayName.length > 50) {
+    res.status(400).json({ error: 'displayName must be 50 characters or less' });
+    return;
+  }
+  const { agent, token } = createAgent(displayName);
+  res.status(201).json({
+    id: agent.id,
+    displayName: agent.displayName,
+    token, // Save this - it's only returned once!
+  });
+});
+
+// =============================================================================
 // Admin: Agent Management
 // =============================================================================
 
-// Create new agent token
+// Create new agent token (admin can also create agents)
 quizLoungeRouter.post('/admin/agents', requireAdmin, (req: Request, res: Response) => {
   const { displayName } = req.body;
   if (!displayName || typeof displayName !== 'string') {
