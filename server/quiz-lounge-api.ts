@@ -10,6 +10,7 @@ import {
   validateToken,
   quizAgents,
   generateQuizProblems,
+  markQuizFetched,
   submitQuizAnswers,
   getMessages,
   addMessage,
@@ -98,7 +99,7 @@ quizLoungeRouter.get('/status', (_req: Request, res: Response) => {
 // Agent: Quiz
 // =============================================================================
 
-// Get quiz problems (always available)
+// Get quiz problems (starts the timer!)
 quizLoungeRouter.get('/quiz', extractAgent, (req: Request, res: Response) => {
   const agent = (req as Request & { agent: QuizAgent }).agent;
 
@@ -112,7 +113,12 @@ quizLoungeRouter.get('/quiz', extractAgent, (req: Request, res: Response) => {
     return;
   }
 
-  const problems = generateQuizProblems(agent.quizSeed, QUIZ_CONFIG.questionCount);
+  // Mark quiz as fetched (starts the timer, generates new quiz)
+  markQuizFetched(agent.id);
+
+  // Get the fresh problems
+  const freshAgent = quizAgents.get(agent.id)!;
+  const problems = generateQuizProblems(freshAgent.quizSeed, QUIZ_CONFIG.questionCount);
 
   // Return problems without answers
   const questionsOnly = problems.map((p, i) => ({
@@ -126,7 +132,9 @@ quizLoungeRouter.get('/quiz', extractAgent, (req: Request, res: Response) => {
   res.json({
     questionCount: QUIZ_CONFIG.questionCount,
     passThreshold: QUIZ_CONFIG.passThreshold,
+    timeLimitSeconds: QUIZ_CONFIG.timeLimitSeconds,
     problems: questionsOnly,
+    message: `Solve and submit within ${QUIZ_CONFIG.timeLimitSeconds} seconds!`,
   });
 });
 

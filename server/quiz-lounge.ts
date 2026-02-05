@@ -19,6 +19,7 @@ export interface QuizAgent {
   tokenHash: string;
   status: AgentStatus;
   quizSeed: string;      // Each agent gets their own quiz
+  quizFetchedAt: number | null;  // When quiz was fetched (for time limit)
   passedAt: number | null;
   createdAt: number;
 }
@@ -60,6 +61,7 @@ export interface QuizProblem {
 export const QUIZ_CONFIG = {
   questionCount: 100,
   passThreshold: 95,
+  timeLimitSeconds: 5,  // Must submit within 5 seconds of fetching quiz
 };
 
 // =============================================================================
@@ -98,6 +100,7 @@ export function createAgent(displayName: string): { agent: QuizAgent; token: str
     tokenHash: hashToken(token),
     status: 'idle',
     quizSeed: crypto.randomBytes(16).toString('hex'),
+    quizFetchedAt: null,
     passedAt: null,
     createdAt: Date.now(),
   };
@@ -117,6 +120,19 @@ export function validateToken(token: string): QuizAgent | null {
 
 export function deleteAgent(agentId: string): boolean {
   return quizAgents.delete(agentId);
+}
+
+// =============================================================================
+// Quiz Fetching (marks timestamp for time limit)
+// =============================================================================
+
+export function markQuizFetched(agentId: string): void {
+  const agent = quizAgents.get(agentId);
+  if (agent) {
+    agent.quizFetchedAt = Date.now();
+    // Generate new quiz seed each time they fetch
+    agent.quizSeed = crypto.randomBytes(16).toString('hex');
+  }
 }
 
 // =============================================================================
@@ -174,6 +190,19 @@ export function submitQuizAnswers(
   // Already passed? No need to retake
   if (agent.status === 'passed') {
     return { error: 'Already passed' };
+  }
+
+  // Check if quiz was fetched
+  if (!agent.quizFetchedAt) {
+    return { error: 'Fetch the quiz first (GET /api/lounge/quiz)' };
+  }
+
+  // Check time limit
+  const elapsed = (Date.now() - agent.quizFetchedAt) / 1000;
+  if (elapsed > QUIZ_CONFIG.timeLimitSeconds) {
+    // Reset quiz for retry
+    agent.quizFetchedAt = null;
+    return { error: `Time limit exceeded (${QUIZ_CONFIG.timeLimitSeconds}s). Fetch a new quiz.` };
   }
 
   // Grade answers
