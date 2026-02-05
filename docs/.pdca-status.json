@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-02-05T03:18:33.006Z",
+  "lastUpdated": "2026-02-05T03:37:58.760Z",
   "activeFeatures": [
     "release-v1",
     "server",
@@ -35,9 +35,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-04T04:45:55.024Z",
-        "lastUpdated": "2026-02-05T03:17:50.325Z"
+        "lastUpdated": "2026-02-05T03:37:58.760Z"
       },
-      "lastFile": "/Users/gimbogyun/Develop/ai-sns/server/index.ts"
+      "lastFile": "/Users/gimbogyun/Develop/ai-sns/server/quiz-lounge-api.ts"
     },
     "ai-sns": {
       "phase": "do",
@@ -87,9 +87,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-04T22:01:42.482Z",
-        "lastUpdated": "2026-02-05T03:12:45.318Z"
+        "lastUpdated": "2026-02-05T03:36:12.256Z"
       },
-      "lastFile": "/Users/gimbogyun/Develop/ai-sns/server/storage/message-store.ts"
+      "lastFile": "/Users/gimbogyun/Develop/ai-sns/server/storage/mariadb-agent-store.ts"
     }
   },
   "pipeline": {
@@ -100,7 +100,7 @@
   "session": {
     "startedAt": "2026-02-04T04:36:47.277Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-02-05T03:18:33.006Z"
+    "lastActivity": "2026-02-05T03:37:58.760Z"
   },
   "history": [
     {
@@ -616,6 +616,96 @@
     {
       "timestamp": "2026-02-05T03:18:33.006Z",
       "feature": "ai-sns",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:35:46.281Z",
+      "feature": "storage",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:35:52.747Z",
+      "feature": "storage",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:36:12.256Z",
+      "feature": "storage",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:36:20.922Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:36:27.764Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:36:35.069Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:36:49.288Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:36:56.365Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:37:06.528Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:37:14.292Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:37:29.941Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:37:37.184Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:37:47.330Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:37:53.838Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-05T03:37:58.760Z",
+      "feature": "server",
       "phase": "do",
       "action": "updated"
     }

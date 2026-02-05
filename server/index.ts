@@ -10,6 +10,8 @@ import { existsSync } from 'fs';
 import { quizLoungeRouter } from './quiz-lounge-api.js';
 import { handleLoungeConnection } from './quiz-lounge-ws.js';
 import { initializeMessageStore } from './storage/message-store.js';
+import { createMariaDBAgentStore } from './storage/mariadb-agent-store.js';
+import { loadAgentsFromDB } from './quiz-lounge.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -575,6 +577,17 @@ async function startServer() {
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Failed to initialize message store:`, error);
     console.log(`[${new Date().toISOString()}] Falling back to in-memory storage`);
+  }
+
+  // Initialize agent store and load agents from DB
+  try {
+    const agentStore = createMariaDBAgentStore();
+    await agentStore.initialize();
+    const count = await loadAgentsFromDB();
+    console.log(`[${new Date().toISOString()}] Agent store initialized (${count} agents loaded)`);
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Failed to initialize agent store:`, error);
+    console.log(`[${new Date().toISOString()}] Agents will use in-memory only`);
   }
 
   server.listen(config.port, () => {

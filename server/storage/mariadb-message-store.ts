@@ -63,6 +63,9 @@ export class MariaDBMessageStore {
       queueLimit: 0,
     });
 
+    // Share pool for other stores
+    setSharedPool(this.pool);
+
     // Test connection and create table
     const conn = await this.pool.getConnection();
     try {
@@ -220,6 +223,7 @@ export class MariaDBMessageStore {
 // =============================================================================
 
 let store: MariaDBMessageStore | null = null;
+let sharedPool: Pool | null = null;
 
 export function createMariaDBMessageStore(): MariaDBMessageStore | null {
   const host = process.env.DB_HOST;
@@ -242,4 +246,13 @@ export function createMariaDBMessageStore(): MariaDBMessageStore | null {
 
 export function getMariaDBMessageStore(): MariaDBMessageStore | null {
   return store;
+}
+
+// Shared pool access for other stores (e.g., agent store)
+export function getSharedPool(): Pool | null {
+  return sharedPool;
+}
+
+export function setSharedPool(pool: Pool): void {
+  sharedPool = pool;
 }

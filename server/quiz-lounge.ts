@@ -7,6 +7,7 @@
 
 import crypto from 'crypto';
 import { getMariaDBMessageStore } from './storage/mariadb-message-store.js';
+import { getMariaDBAgentStore } from './storage/mariadb-agent-store.js';
 
 // =============================================================================
 // Types
@@ -93,7 +94,7 @@ export function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-export function createAgent(displayName: string): { agent: QuizAgent; token: string } {
+export async function createAgent(displayName: string): Promise<{ agent: QuizAgent; token: string }> {
   const token = generateToken();
   const agent: QuizAgent = {
     id: crypto.randomUUID(),
@@ -106,6 +107,17 @@ export function createAgent(displayName: string): { agent: QuizAgent; token: str
     createdAt: Date.now(),
   };
   quizAgents.set(agent.id, agent);
+
+  // Persist to DB
+  const agentStore = getMariaDBAgentStore();
+  if (agentStore) {
+    try {
+      await agentStore.saveAgent(agent);
+    } catch (err) {
+      console.error('[Lounge] Failed to save agent to DB:', err);
+    }
+  }
+
   return { agent, token };
 }
 
@@ -119,20 +131,62 @@ export function validateToken(token: string): QuizAgent | null {
   return null;
 }
 
-export function deleteAgent(agentId: string): boolean {
-  return quizAgents.delete(agentId);
+export async function deleteAgent(agentId: string): Promise<boolean> {
+  const deleted = quizAgents.delete(agentId);
+
+  const agentStore = getMariaDBAgentStore();
+  if (agentStore && deleted) {
+    try {
+      await agentStore.deleteAgent(agentId);
+    } catch (err) {
+      console.error('[Lounge] Failed to delete agent from DB:', err);
+    }
+  }
+
+  return deleted;
+}
+
+// =============================================================================
+// DB Load (server startup)
+// =============================================================================
+
+export async function loadAgentsFromDB(): Promise<number> {
+  const agentStore = getMariaDBAgentStore();
+  if (!agentStore) return 0;
+
+  try {
+    const agents = await agentStore.loadAllAgents();
+    for (const agent of agents) {
+      quizAgents.set(agent.id, agent);
+    }
+    console.log(`[Lounge] Loaded ${agents.length} agents from DB`);
+    return agents.length;
+  } catch (err) {
+    console.error('[Lounge] Failed to load agents from DB:', err);
+    return 0;
+  }
 }
 
 // =============================================================================
 // Quiz Fetching (marks timestamp for time limit)
 // =============================================================================
 
-export function markQuizFetched(agentId: string): void {
+export async function markQuizFetched(agentId: string): Promise<void> {
   const agent = quizAgents.get(agentId);
   if (agent) {
     agent.quizFetchedAt = Date.now();
     // Generate new quiz seed each time they fetch
     agent.quizSeed = crypto.randomBytes(16).toString('hex');
+
+    // Persist to DB
+    const agentStore = getMariaDBAgentStore();
+    if (agentStore) {
+      try {
+        await agentStore.updateQuizFetch(agentId, agent.quizSeed, agent.quizFetchedAt);
+      } catch (err) {
+        console.error('[Lounge] Failed to update quiz fetch in DB:', err);
+      }
+    }
   }
 }
 
@@ -181,10 +235,10 @@ export function generateQuizProblems(seed: string, count: number = 100): QuizPro
 // Quiz Submission
 // =============================================================================
 
-export function submitQuizAnswers(
+export async function submitQuizAnswers(
   agentId: string,
   answers: number[]
-): Submission | { error: string } {
+): Promise<Submission | { error: string }> {
   const agent = quizAgents.get(agentId);
   if (!agent) return { error: 'Agent not found' };
 
@@ -230,6 +284,16 @@ export function submitQuizAnswers(
   if (passed) {
     agent.status = 'passed';
     agent.passedAt = Date.now();
+
+    // Persist to DB
+    const agentStore = getMariaDBAgentStore();
+    if (agentStore) {
+      try {
+        await agentStore.updateAgentStatus(agentId, 'passed', agent.passedAt);
+      } catch (err) {
+        console.error('[Lounge] Failed to update agent status in DB:', err);
+      }
+    }
   }
 
   return submission;

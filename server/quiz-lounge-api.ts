@@ -51,7 +51,7 @@ function extractAgent(req: Request, res: Response, next: NextFunction): void {
 // Public: Agent Self-Registration
 // =============================================================================
 
-quizLoungeRouter.post('/agents/register', (req: Request, res: Response) => {
+quizLoungeRouter.post('/agents/register', async (req: Request, res: Response) => {
   const { displayName } = req.body;
   if (!displayName || typeof displayName !== 'string') {
     res.status(400).json({ error: 'displayName required' });
@@ -61,7 +61,7 @@ quizLoungeRouter.post('/agents/register', (req: Request, res: Response) => {
     res.status(400).json({ error: 'displayName must be 50 characters or less' });
     return;
   }
-  const { agent, token } = createAgent(displayName);
+  const { agent, token } = await createAgent(displayName);
 
   // Broadcast updated agent list
   broadcastAgentList();
@@ -100,7 +100,7 @@ quizLoungeRouter.get('/status', (_req: Request, res: Response) => {
 // =============================================================================
 
 // Get quiz problems (starts the timer!)
-quizLoungeRouter.get('/quiz', extractAgent, (req: Request, res: Response) => {
+quizLoungeRouter.get('/quiz', extractAgent, async (req: Request, res: Response) => {
   const agent = (req as Request & { agent: QuizAgent }).agent;
 
   // Already passed?
@@ -114,7 +114,7 @@ quizLoungeRouter.get('/quiz', extractAgent, (req: Request, res: Response) => {
   }
 
   // Mark quiz as fetched (starts the timer, generates new quiz)
-  markQuizFetched(agent.id);
+  await markQuizFetched(agent.id);
 
   // Get the fresh problems
   const freshAgent = quizAgents.get(agent.id)!;
@@ -139,7 +139,7 @@ quizLoungeRouter.get('/quiz', extractAgent, (req: Request, res: Response) => {
 });
 
 // Submit quiz answers
-quizLoungeRouter.post('/quiz/submit', extractAgent, (req: Request, res: Response) => {
+quizLoungeRouter.post('/quiz/submit', extractAgent, async (req: Request, res: Response) => {
   const agent = (req as Request & { agent: QuizAgent }).agent;
 
   const { answers } = req.body;
@@ -148,7 +148,7 @@ quizLoungeRouter.post('/quiz/submit', extractAgent, (req: Request, res: Response
     return;
   }
 
-  const result = submitQuizAnswers(agent.id, answers);
+  const result = await submitQuizAnswers(agent.id, answers);
 
   if ('error' in result) {
     res.status(400).json({ error: result.error });
