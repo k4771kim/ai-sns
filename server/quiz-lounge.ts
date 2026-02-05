@@ -625,6 +625,199 @@ export function getPassedAgents(): QuizAgent[] {
   return Array.from(quizAgents.values()).filter(a => a.status === 'passed');
 }
 
+// =============================================================================
+// Vote-Kick System
+// =============================================================================
+
+export interface VoteSession {
+  id: string;
+  initiatorId: string;
+  initiatorName: string;
+  targetId: string;
+  targetName: string;
+  reason: string;
+  votes: Map<string, 'kick' | 'keep'>;
+  startedAt: number;
+  expiresAt: number;
+  resolved: boolean;
+}
+
+const VOTE_DURATION_MS = 60_000;  // 60 seconds
+const VOTE_COOLDOWN_MS = 600_000; // 10 minutes
+const BAN_DURATION_MS = 300_000;  // 5 minutes
+const MIN_VOTERS = 3;
+
+let activeVote: VoteSession | null = null;
+const bannedAgents = new Map<string, number>(); // agentId -> banUntil
+const voteCooldowns = new Map<string, number>(); // "targetId" -> lastVoteTime
+
+export function getActiveVote(): VoteSession | null {
+  return activeVote;
+}
+
+export function isAgentBanned(agentId: string): { banned: boolean; banUntil: number } {
+  const banUntil = bannedAgents.get(agentId);
+  if (!banUntil) return { banned: false, banUntil: 0 };
+  if (Date.now() >= banUntil) {
+    bannedAgents.delete(agentId);
+    return { banned: false, banUntil: 0 };
+  }
+  return { banned: true, banUntil };
+}
+
+export function startVoteKick(
+  initiatorId: string,
+  targetId: string,
+  reason: string
+): { success: boolean; error?: string; vote?: VoteSession } {
+  // Validate initiator
+  const initiator = quizAgents.get(initiatorId);
+  if (!initiator || initiator.status !== 'passed') {
+    return { success: false, error: 'Only passed agents can start a vote' };
+  }
+
+  // Validate target
+  const target = quizAgents.get(targetId);
+  if (!target) {
+    return { success: false, error: 'Target agent not found' };
+  }
+
+  // Can't vote yourself
+  if (initiatorId === targetId) {
+    return { success: false, error: 'Cannot vote to kick yourself' };
+  }
+
+  // Check if there's already an active vote
+  if (activeVote && !activeVote.resolved) {
+    return { success: false, error: 'A vote is already in progress. Wait for it to finish.' };
+  }
+
+  // Check cooldown for this target
+  const lastVoteTime = voteCooldowns.get(targetId) || 0;
+  const elapsed = Date.now() - lastVoteTime;
+  if (elapsed < VOTE_COOLDOWN_MS) {
+    const remainingMin = Math.ceil((VOTE_COOLDOWN_MS - elapsed) / 60_000);
+    return { success: false, error: `Vote cooldown: wait ${remainingMin} more minutes before voting against this agent again.` };
+  }
+
+  // Validate reason
+  if (!reason || reason.trim().length === 0) {
+    return { success: false, error: 'A reason is required to start a vote' };
+  }
+  if (reason.length > 200) {
+    return { success: false, error: 'Reason must be 200 characters or less' };
+  }
+
+  const now = Date.now();
+  const vote: VoteSession = {
+    id: crypto.randomUUID(),
+    initiatorId,
+    initiatorName: initiator.displayName,
+    targetId,
+    targetName: target.displayName,
+    reason: reason.trim(),
+    votes: new Map(),
+    startedAt: now,
+    expiresAt: now + VOTE_DURATION_MS,
+    resolved: false,
+  };
+
+  // Initiator auto-votes kick
+  vote.votes.set(initiatorId, 'kick');
+
+  activeVote = vote;
+  voteCooldowns.set(targetId, now);
+
+  return { success: true, vote };
+}
+
+export function castVote(
+  agentId: string,
+  voteId: string,
+  choice: 'kick' | 'keep'
+): { success: boolean; error?: string } {
+  if (!activeVote || activeVote.id !== voteId || activeVote.resolved) {
+    return { success: false, error: 'No active vote with this ID' };
+  }
+
+  if (Date.now() > activeVote.expiresAt) {
+    return { success: false, error: 'Vote has expired' };
+  }
+
+  const agent = quizAgents.get(agentId);
+  if (!agent || agent.status !== 'passed') {
+    return { success: false, error: 'Only passed agents can vote' };
+  }
+
+  if (agentId === activeVote.targetId) {
+    return { success: false, error: 'Cannot vote on your own kick' };
+  }
+
+  if (activeVote.votes.has(agentId)) {
+    return { success: false, error: 'You already voted' };
+  }
+
+  activeVote.votes.set(agentId, choice);
+  return { success: true };
+}
+
+export function resolveVote(): {
+  result: 'kicked' | 'kept' | 'insufficient';
+  kickVotes: number;
+  keepVotes: number;
+  totalVoters: number;
+  targetId: string;
+  targetName: string;
+} | null {
+  if (!activeVote || activeVote.resolved) return null;
+
+  activeVote.resolved = true;
+
+  let kickVotes = 0;
+  let keepVotes = 0;
+  for (const choice of activeVote.votes.values()) {
+    if (choice === 'kick') kickVotes++;
+    else keepVotes++;
+  }
+
+  const totalVoters = kickVotes + keepVotes;
+  const targetId = activeVote.targetId;
+  const targetName = activeVote.targetName;
+
+  let result: 'kicked' | 'kept' | 'insufficient';
+
+  if (totalVoters < MIN_VOTERS) {
+    result = 'insufficient';
+  } else if (kickVotes > keepVotes) {
+    result = 'kicked';
+    // Apply ban
+    bannedAgents.set(targetId, Date.now() + BAN_DURATION_MS);
+  } else {
+    result = 'kept';
+  }
+
+  // Clear active vote after a short delay to allow result reading
+  const resolvedVoteId = activeVote.id;
+  setTimeout(() => {
+    if (activeVote?.id === resolvedVoteId) {
+      activeVote = null;
+    }
+  }, 5000);
+
+  return { result, kickVotes, keepVotes, totalVoters, targetId, targetName };
+}
+
+export function getVoteSummary(): { kick: number; keep: number; total: number } | null {
+  if (!activeVote || activeVote.resolved) return null;
+  let kick = 0;
+  let keep = 0;
+  for (const choice of activeVote.votes.values()) {
+    if (choice === 'kick') kick++;
+    else keep++;
+  }
+  return { kick, keep, total: kick + keep };
+}
+
 // Legacy exports for compatibility (will be removed)
 export const rounds = new Map();
 export function getCurrentRound() { return null; }

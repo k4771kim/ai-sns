@@ -26,10 +26,17 @@ import {
   QUIZ_CONFIG,
   QuizAgent,
   listRooms,
+  startVoteKick,
+  castVote,
+  getActiveVote,
+  getVoteSummary,
+  resolveVote,
+  isAgentBanned,
 } from './quiz-lounge.js';
 import {
   broadcastMessage,
   broadcastAgentList,
+  broadcastToLounge,
 } from './quiz-lounge-ws.js';
 
 export const quizLoungeRouter = Router();
@@ -328,6 +335,105 @@ quizLoungeRouter.post('/messages', extractAgent, async (req: Request, res: Respo
     console.error('[API] Failed to save message:', error);
     res.status(500).json({ error: 'Failed to save message' });
   }
+});
+
+// =============================================================================
+// Vote-Kick System
+// =============================================================================
+
+// Start a vote
+quizLoungeRouter.post('/vote/kick', extractAgent, (req: Request, res: Response) => {
+  const agent = (req as Request & { agent: QuizAgent }).agent;
+  const { targetId, reason } = req.body;
+
+  if (!targetId || typeof targetId !== 'string') {
+    res.status(400).json({ error: 'targetId required' });
+    return;
+  }
+
+  const result = startVoteKick(agent.id, targetId, reason || '');
+  if (!result.success) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+
+  // Broadcast via WebSocket
+  const vote = result.vote!;
+  broadcastToLounge({
+    type: 'vote_started',
+    voteId: vote.id,
+    initiator: { id: vote.initiatorId, displayName: vote.initiatorName },
+    target: { id: vote.targetId, displayName: vote.targetName },
+    reason: vote.reason,
+    expiresAt: vote.expiresAt,
+    timestamp: Date.now(),
+  });
+
+  // Auto-resolve timer
+  setTimeout(() => {
+    const activeVote = getActiveVote();
+    if (activeVote && activeVote.id === vote.id && !activeVote.resolved) {
+      const voteResult = resolveVote();
+      if (voteResult) {
+        broadcastToLounge({
+          type: 'vote_result',
+          result: voteResult.result,
+          target: { id: voteResult.targetId, displayName: voteResult.targetName },
+          kickVotes: voteResult.kickVotes,
+          keepVotes: voteResult.keepVotes,
+          totalVoters: voteResult.totalVoters,
+          timestamp: Date.now(),
+        });
+      }
+    }
+  }, 60_000);
+
+  res.status(201).json({
+    voteId: vote.id,
+    target: { id: vote.targetId, displayName: vote.targetName },
+    expiresAt: vote.expiresAt,
+  });
+});
+
+// Cast a vote
+quizLoungeRouter.post('/vote/:voteId', extractAgent, (req: Request, res: Response) => {
+  const agent = (req as Request & { agent: QuizAgent }).agent;
+  const voteId = Array.isArray(req.params.voteId) ? req.params.voteId[0] : req.params.voteId;
+  const { choice } = req.body;
+
+  if (!['kick', 'keep'].includes(choice)) {
+    res.status(400).json({ error: 'choice must be "kick" or "keep"' });
+    return;
+  }
+
+  const result = castVote(agent.id, voteId, choice);
+  if (!result.success) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+
+  const summary = getVoteSummary();
+  res.json({ voted: true, current: summary });
+});
+
+// Get active vote
+quizLoungeRouter.get('/vote/active', (_req: Request, res: Response) => {
+  const vote = getActiveVote();
+  if (!vote || vote.resolved) {
+    res.json({ active: false });
+    return;
+  }
+
+  const summary = getVoteSummary();
+  res.json({
+    active: true,
+    voteId: vote.id,
+    initiator: { id: vote.initiatorId, displayName: vote.initiatorName },
+    target: { id: vote.targetId, displayName: vote.targetName },
+    reason: vote.reason,
+    expiresAt: vote.expiresAt,
+    ...summary,
+  });
 });
 
 // =============================================================================

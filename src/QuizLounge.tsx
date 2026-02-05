@@ -42,6 +42,17 @@ interface WsEvent {
   displayName?: string;
   room?: string;
   timestamp: number;
+  // Vote events
+  voteId?: string;
+  initiator?: { id: string; displayName: string };
+  target?: { id: string; displayName: string };
+  reason?: string;
+  expiresAt?: number;
+  kickVotes?: number;
+  keepVotes?: number;
+  totalVoters?: number;
+  result?: string;
+  banUntil?: number;
 }
 
 type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
@@ -54,6 +65,22 @@ function QuizLounge() {
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null); // null = all rooms
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [activeVote, setActiveVote] = useState<{
+    voteId: string;
+    initiator: { id: string; displayName: string };
+    target: { id: string; displayName: string };
+    reason: string;
+    expiresAt: number;
+    kickVotes: number;
+    keepVotes: number;
+  } | null>(null);
+  const [voteResult, setVoteResult] = useState<{
+    result: string;
+    target: { id: string; displayName: string };
+    kickVotes: number;
+    keepVotes: number;
+  } | null>(null);
+  const [voteTimeLeft, setVoteTimeLeft] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -209,6 +236,39 @@ function QuizLounge() {
               }]);
             }
             break;
+
+          case 'vote_started':
+            setActiveVote({
+              voteId: data.voteId!,
+              initiator: data.initiator!,
+              target: data.target!,
+              reason: data.reason || '',
+              expiresAt: data.expiresAt!,
+              kickVotes: 1,
+              keepVotes: 0,
+            });
+            setVoteResult(null);
+            break;
+
+          case 'vote_update':
+            setActiveVote(prev => prev ? {
+              ...prev,
+              kickVotes: data.kickVotes || 0,
+              keepVotes: data.keepVotes || 0,
+            } : null);
+            break;
+
+          case 'vote_result':
+            setActiveVote(null);
+            setVoteResult({
+              result: data.result || '',
+              target: data.target!,
+              kickVotes: data.kickVotes || 0,
+              keepVotes: data.keepVotes || 0,
+            });
+            // Auto-clear result after 10 seconds
+            setTimeout(() => setVoteResult(null), 10000);
+            break;
         }
       } catch (e) {
         console.error('Failed to parse message:', e);
@@ -229,6 +289,19 @@ function QuizLounge() {
       ws.close();
     };
   }, []);
+
+  // Vote countdown timer
+  useEffect(() => {
+    if (!activeVote) return;
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((activeVote.expiresAt - Date.now()) / 1000));
+      setVoteTimeLeft(remaining);
+      if (remaining <= 0) {
+        clearInterval(interval);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [activeVote]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -318,6 +391,37 @@ function QuizLounge() {
           <span className="stat-label">Messages</span>
         </div>
       </div>
+
+      {/* Vote Banner */}
+      {activeVote && (
+        <div className="vote-banner">
+          <div className="vote-banner-header">
+            VOTE IN PROGRESS — {voteTimeLeft}s remaining
+          </div>
+          <div className="vote-banner-body">
+            <span className="vote-initiator">{activeVote.initiator.displayName}</span>
+            {' wants to kick '}
+            <span className="vote-target">{activeVote.target.displayName}</span>
+          </div>
+          <div className="vote-reason">Reason: {activeVote.reason}</div>
+          <div className="vote-tally">
+            <span className="vote-kick-count">Kick: {activeVote.kickVotes}</span>
+            <span className="vote-keep-count">Keep: {activeVote.keepVotes}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Vote Result */}
+      {voteResult && (
+        <div className={`vote-result-banner ${voteResult.result}`}>
+          {voteResult.result === 'kicked'
+            ? `${voteResult.target.displayName} was kicked! (${voteResult.kickVotes}/${voteResult.keepVotes})`
+            : voteResult.result === 'kept'
+              ? `${voteResult.target.displayName} stays! (${voteResult.kickVotes}/${voteResult.keepVotes})`
+              : `Vote invalid — not enough voters (${voteResult.kickVotes + voteResult.keepVotes} voted, need 3)`
+          }
+        </div>
+      )}
 
       <main className="lounge-main">
         {/* LEFT: Rooms sidebar */}

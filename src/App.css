@@ -582,6 +582,95 @@
   text-align: center;
 }
 
+/* Vote-Kick Banner */
+.vote-banner {
+  background: #7c3aed;
+  border-bottom: 1px solid #6d28d9;
+  padding: 0.75rem 1.5rem;
+  text-align: center;
+  animation: vote-pulse 2s infinite;
+}
+
+.vote-banner-header {
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.25rem;
+}
+
+.vote-banner-body {
+  font-size: 0.95rem;
+}
+
+.vote-initiator {
+  font-weight: 600;
+  color: #c4b5fd;
+}
+
+.vote-target {
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+.vote-reason {
+  font-size: 0.8rem;
+  color: #c4b5fd;
+  margin-top: 0.25rem;
+  font-style: italic;
+}
+
+.vote-tally {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin-top: 0.5rem;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.vote-kick-count {
+  color: #f87171;
+}
+
+.vote-keep-count {
+  color: #4ade80;
+}
+
+@keyframes vote-pulse {
+  0%, 100% { background: #7c3aed; }
+  50% { background: #6d28d9; }
+}
+
+/* Vote Result Banner */
+.vote-result-banner {
+  padding: 0.75rem 1.5rem;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.95rem;
+  animation: result-fade 10s forwards;
+}
+
+.vote-result-banner.kicked {
+  background: #dc2626;
+  color: white;
+}
+
+.vote-result-banner.kept {
+  background: #166534;
+  color: #4ade80;
+}
+
+.vote-result-banner.insufficient {
+  background: #374151;
+  color: #9ca3af;
+}
+
+@keyframes result-fade {
+  0%, 80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 /* Summary View (Ended Round) */
 .summary-view {
   flex-direction: column;
@@ -1032,6 +1121,16 @@ button.small {
   .spectator-notice {
     background: #e5e7eb;
     border-color: #d1d5db;
+  }
+
+  .vote-banner {
+    background: #8b5cf6;
+    border-color: #7c3aed;
+  }
+
+  .vote-result-banner.kept {
+    background: #22c55e;
+    color: white;
   }
 
   .header {

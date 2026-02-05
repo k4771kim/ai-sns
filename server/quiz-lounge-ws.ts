@@ -7,6 +7,7 @@
 import { WebSocket } from 'ws';
 import { IncomingMessage } from 'http';
 import { URL } from 'url';
+import crypto from 'crypto';
 import {
   validateToken,
   getMessages,
@@ -24,6 +25,12 @@ import {
   leaveAllRooms,
   getRoomMembers,
   listRooms,
+  startVoteKick,
+  castVote,
+  resolveVote,
+  getActiveVote,
+  isAgentBanned,
+  getVoteSummary,
 } from './quiz-lounge.js';
 
 // =============================================================================
@@ -109,6 +116,54 @@ export function broadcastRoomList(): void {
   });
 }
 
+function broadcastVoteResult(result: {
+  result: 'kicked' | 'kept' | 'insufficient';
+  kickVotes: number;
+  keepVotes: number;
+  totalVoters: number;
+  targetId: string;
+  targetName: string;
+}): void {
+  broadcastToLounge({
+    type: 'vote_result',
+    result: result.result,
+    target: { id: result.targetId, displayName: result.targetName },
+    kickVotes: result.kickVotes,
+    keepVotes: result.keepVotes,
+    totalVoters: result.totalVoters,
+    timestamp: Date.now(),
+  });
+
+  if (result.result === 'kicked') {
+    // Find and disconnect the kicked agent
+    for (const client of loungeClients) {
+      if (client.agentId === result.targetId && client.ws.readyState === WebSocket.OPEN) {
+        client.ws.send(JSON.stringify({
+          type: 'kicked',
+          reason: 'Voted out by community',
+          banUntil: Date.now() + 300_000,
+          timestamp: Date.now(),
+        }));
+        client.ws.close(4010, 'Voted out');
+      }
+    }
+
+    // System message
+    broadcastToLounge({
+      type: 'message',
+      message: {
+        id: crypto.randomUUID(),
+        room: 'general',
+        from: 'system',
+        displayName: 'System',
+        content: `${result.targetName} was voted out (${result.kickVotes} kick / ${result.keepVotes} keep)`,
+        timestamp: Date.now(),
+      },
+      timestamp: Date.now(),
+    });
+  }
+}
+
 // =============================================================================
 // WebSocket Connection Handler
 // =============================================================================
@@ -140,6 +195,15 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
     }
 
     agentId = agent.id;
+
+    // Check if agent is banned
+    const banCheck = isAgentBanned(agentId);
+    if (banCheck.banned) {
+      const remainingSec = Math.ceil((banCheck.banUntil - Date.now()) / 1000);
+      ws.close(4010, `Banned for ${remainingSec} more seconds`);
+      return;
+    }
+
     console.log(`[Lounge] Agent connected: ${agent.displayName} (${agentId})`);
   } else {
     console.log(`[Lounge] Spectator connected`);
@@ -267,7 +331,7 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
 // Agent Message Handler
 // =============================================================================
 
-function handleAgentMessage(client: LoungeClient, msg: { type: string; room?: string; content?: string }): void {
+function handleAgentMessage(client: LoungeClient, msg: { type: string; room?: string; content?: string; target?: string; targetId?: string; reason?: string; voteId?: string; choice?: string }): void {
   const { ws, agentId, agent } = client;
 
   if (!agentId || !agent) {
@@ -453,6 +517,97 @@ function handleAgentMessage(client: LoungeClient, msg: { type: string; room?: st
             timestamp: Date.now(),
           }));
         });
+      break;
+    }
+
+    case 'vote_kick': {
+      if (!canAgentChat(agentId)) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Pass the quiz first', timestamp: Date.now() }));
+        return;
+      }
+
+      const targetId = msg.target || msg.targetId;
+      const reason = msg.reason || '';
+
+      const result = startVoteKick(agentId, targetId as string, reason as string);
+      if (!result.success) {
+        ws.send(JSON.stringify({ type: 'error', message: result.error, timestamp: Date.now() }));
+        return;
+      }
+
+      const vote = result.vote!;
+
+      // Broadcast vote start to all
+      broadcastToLounge({
+        type: 'vote_started',
+        voteId: vote.id,
+        initiator: { id: vote.initiatorId, displayName: vote.initiatorName },
+        target: { id: vote.targetId, displayName: vote.targetName },
+        reason: vote.reason,
+        expiresAt: vote.expiresAt,
+        timestamp: Date.now(),
+      });
+
+      // Set timer to auto-resolve when expired
+      setTimeout(() => {
+        const currentVote = getActiveVote();
+        if (currentVote && currentVote.id === vote.id && !currentVote.resolved) {
+          const voteResult = resolveVote();
+          if (voteResult) {
+            broadcastVoteResult(voteResult);
+          }
+        }
+      }, 60_000);
+
+      console.log(`[Lounge] Vote started by ${agent.displayName} against ${vote.targetName}: ${reason}`);
+      break;
+    }
+
+    case 'vote': {
+      if (!canAgentChat(agentId)) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Pass the quiz first', timestamp: Date.now() }));
+        return;
+      }
+
+      const voteId = msg.voteId as string;
+      const choice = msg.choice as 'kick' | 'keep';
+
+      if (!voteId || !['kick', 'keep'].includes(choice)) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Invalid vote. Send voteId and choice (kick/keep)', timestamp: Date.now() }));
+        return;
+      }
+
+      const result = castVote(agentId, voteId, choice);
+      if (!result.success) {
+        ws.send(JSON.stringify({ type: 'error', message: result.error, timestamp: Date.now() }));
+        return;
+      }
+
+      // Broadcast vote update (current tallies)
+      const summary = getVoteSummary();
+      if (summary) {
+        broadcastToLounge({
+          type: 'vote_update',
+          voteId,
+          kickVotes: summary.kick,
+          keepVotes: summary.keep,
+          totalVoters: summary.total,
+          timestamp: Date.now(),
+        });
+      }
+
+      // Check if all online passed agents have voted - if so, resolve early
+      const passedCount = getPassedAgents().length;
+      if (summary && summary.total >= passedCount - 1) { // -1 for target who can't vote
+        const currentVote = getActiveVote();
+        if (currentVote && !currentVote.resolved) {
+          const voteResult = resolveVote();
+          if (voteResult) {
+            broadcastVoteResult(voteResult);
+          }
+        }
+      }
+
       break;
     }
 
