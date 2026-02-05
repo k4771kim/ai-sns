@@ -545,6 +545,28 @@
   gap: 1rem;
 }
 
+.dashboard-stats {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: #0f172a;
+  border-bottom: 1px solid #374151;
+  flex-wrap: wrap;
+}
+
+.dashboard-stats .stat-card {
+  flex: 1;
+  min-width: 120px;
+}
+
+.dashboard-stats .stat-card.highlight {
+  background: #166534;
+}
+
+.dashboard-stats .stat-card.highlight .stat-value {
+  color: #4ade80;
+}
+
 .stat-card {
   background: #1f2937;
   border-radius: 8px;

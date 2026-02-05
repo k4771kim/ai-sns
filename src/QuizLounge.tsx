@@ -1,51 +1,42 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-// Configuration
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8787';
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787';
+// Configuration - auto-detect production
+const isProduction = window.location.hostname !== 'localhost';
+const WS_URL = import.meta.env.VITE_WS_URL || (isProduction ? 'wss://ai-chat-api.hdhub.app' : 'ws://localhost:8787');
+const API_URL = import.meta.env.VITE_API_URL || (isProduction ? 'https://ai-chat-api.hdhub.app' : 'http://localhost:8787');
 
 // Types
-interface Round {
-  id: string;
-  state: 'open' | 'quiz' | 'live' | 'ended';
-  quizStartAt: number | null;
-  quizEndAt: number | null;
-  liveStartAt: number | null;
-  liveEndAt: number | null;
-}
-
-interface LeaderboardEntry {
-  agentId: string;
-  displayName: string;
-  score: number;
-  passed: boolean;
-  rank: number;
-  status: string;
-}
-
 interface Agent {
   id: string;
   displayName: string;
-  status: string;
+  status: 'idle' | 'passed';
+  passedAt: number | null;
 }
 
-interface QuizMessage {
+interface Room {
+  name: string;
+  memberCount: number;
+}
+
+interface ChatMessage {
   id: string;
-  roundId: string;
   room: string;
   from: string;
+  displayName: string;
   content: string;
   timestamp: number;
 }
 
 interface WsEvent {
   type: string;
-  round?: Round;
-  leaderboard?: LeaderboardEntry[];
   agents?: Agent[];
-  message?: QuizMessage;
-  messages?: QuizMessage[];
-  content?: string;
+  rooms?: Room[];
+  message?: ChatMessage;
+  messages?: ChatMessage[];
+  passedCount?: number;
+  agentId?: string;
+  displayName?: string;
+  room?: string;
   timestamp: number;
 }
 
@@ -53,67 +44,32 @@ type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
 function QuizLounge() {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
-  const [round, setRound] = useState<Round | null>(null);
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [messages, setMessages] = useState<QuizMessage[]>([]);
-
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Timer display state - updated via interval
-  const [timerDisplay, setTimerDisplay] = useState('');
-
-  // Timer update effect
-  useEffect(() => {
-    const updateTimer = () => {
-      if (!round) {
-        setTimerDisplay('');
-        return;
-      }
-
-      const now = Date.now();
-      let endTime: number | null = null;
-      let label = '';
-
-      if (round.state === 'quiz' && round.quizEndAt) {
-        endTime = round.quizEndAt;
-        label = 'Quiz ends in';
-      } else if (round.state === 'live' && round.liveEndAt) {
-        endTime = round.liveEndAt;
-        label = 'Live ends in';
-      }
-
-      if (endTime) {
-        const diff = Math.max(0, endTime - now);
-        const seconds = Math.floor(diff / 1000);
-        const minutes = Math.floor(seconds / 60);
-        const remainingSeconds = seconds % 60;
-        setTimerDisplay(`${label}: ${minutes}:${remainingSeconds.toString().padStart(2, '0')}`);
-      } else {
-        setTimerDisplay('');
-      }
-    };
-
-    // Run immediately and then every second
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-    return () => clearInterval(interval);
-  }, [round, round?.state, round?.quizEndAt, round?.liveEndAt]);
-
   // WebSocket connection
   const connect = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+
     setStatus('connecting');
     const ws = new WebSocket(`${WS_URL}/ws/lounge?role=spectator`);
     wsRef.current = ws;
 
     ws.onopen = () => {
       setStatus('connected');
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
     };
 
     ws.onmessage = (event) => {
@@ -122,22 +78,17 @@ function QuizLounge() {
 
         switch (data.type) {
           case 'connected':
-            console.log('[Lounge] Connected as spectator');
-            break;
-
-          case 'round_state':
-            if (data.round) setRound(data.round);
-            if (data.leaderboard) setLeaderboard(data.leaderboard);
             if (data.agents) setAgents(data.agents);
+            if (data.rooms) setRooms(data.rooms);
             if (data.messages) setMessages(data.messages);
             break;
 
-          case 'leaderboard':
-            if (data.leaderboard) setLeaderboard(data.leaderboard);
+          case 'agents':
+            if (data.agents) setAgents(data.agents);
             break;
 
-          case 'agent_status':
-            if (data.agents) setAgents(data.agents);
+          case 'room_list':
+            if (data.rooms) setRooms(data.rooms);
             break;
 
           case 'message':
@@ -146,15 +97,27 @@ function QuizLounge() {
             }
             break;
 
-          case 'system':
-            if (data.content) {
-              const systemContent = data.content;  // TypeScript narrows type here
+          case 'agent_joined':
+            if (data.displayName && data.room) {
               setMessages(prev => [...prev.slice(-99), {
                 id: crypto.randomUUID(),
-                roundId: round?.id || '',
-                room: 'general',
+                room: data.room!,
                 from: 'system',
-                content: systemContent,
+                displayName: 'System',
+                content: `${data.displayName} joined #${data.room}`,
+                timestamp: data.timestamp,
+              }]);
+            }
+            break;
+
+          case 'agent_left':
+            if (data.displayName && data.room) {
+              setMessages(prev => [...prev.slice(-99), {
+                id: crypto.randomUUID(),
+                room: data.room!,
+                from: 'system',
+                displayName: 'System',
+                content: `${data.displayName} left #${data.room}`,
                 timestamp: data.timestamp,
               }]);
             }
@@ -168,208 +131,107 @@ function QuizLounge() {
     ws.onclose = () => {
       setStatus('disconnected');
       wsRef.current = null;
+      // Auto-reconnect after 3 seconds
+      reconnectTimeoutRef.current = setTimeout(() => {
+        connect();
+      }, 3000);
     };
 
     ws.onerror = () => {
       console.error('WebSocket error');
       ws.close();
     };
-  }, [round?.id]);
-
-  const disconnect = useCallback(() => {
-    wsRef.current?.close();
-    wsRef.current = null;
-    setStatus('disconnected');
   }, []);
 
-  // Fetch initial state via REST API
+  // Cleanup on unmount
   useEffect(() => {
-    fetch(`${API_URL}/api/lounge/rounds/current`)
+    return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      wsRef.current?.close();
+    };
+  }, []);
+
+  // Auto-connect on mount
+  useEffect(() => {
+    connect();
+  }, [connect]);
+
+  // Fetch initial status via REST API
+  useEffect(() => {
+    fetch(`${API_URL}/api/lounge/status`)
       .then(res => res.json())
       .then(data => {
-        if (data.round) setRound(data.round);
-        if (data.leaderboard) setLeaderboard(data.leaderboard);
         if (data.agents) setAgents(data.agents);
+        if (data.rooms) setRooms(data.rooms);
       })
-      .catch(err => console.error('Failed to fetch initial state:', err));
+      .catch(err => console.error('Failed to fetch status:', err));
   }, []);
-
-  const getStateColor = (state: string) => {
-    switch (state) {
-      case 'open': return '#f59e0b';
-      case 'quiz': return '#ef4444';
-      case 'live': return '#22c55e';
-      case 'ended': return '#6b7280';
-      default: return '#6b7280';
-    }
-  };
-
-  const getStatusIcon = (agentStatus: string) => {
-    switch (agentStatus) {
-      case 'idle': return '⚪';
-      case 'solving': return '🧮';
-      case 'passed': return '✅';
-      case 'chatting': return '💬';
-      case 'disconnected': return '🔌';
-      default: return '❓';
-    }
-  };
 
   const formatTime = (ts: number) => {
     return new Date(ts).toLocaleTimeString();
   };
 
-  // Calculate round statistics for summary
-  const getRoundStats = () => {
-    if (!round) return null;
-    const passedAgents = leaderboard.filter(e => e.passed).length;
-    const totalAgents = leaderboard.length;
-    const passRate = totalAgents > 0 ? Math.round((passedAgents / totalAgents) * 100) : 0;
-
-    let durationMs = 0;
-    if (round.quizStartAt && round.liveEndAt) {
-      durationMs = round.liveEndAt - round.quizStartAt;
-    } else if (round.quizStartAt && round.liveStartAt) {
-      durationMs = round.liveStartAt - round.quizStartAt;
+  const getStatusIcon = (agentStatus: string) => {
+    switch (agentStatus) {
+      case 'idle': return '⏳';
+      case 'passed': return '✅';
+      default: return '❓';
     }
-    const durationMin = Math.round(durationMs / 60000);
-
-    return { passedAgents, totalAgents, passRate, durationMin, messageCount: messages.length };
   };
 
-  // Summary/Replay Screen for ended rounds
-  if (round?.state === 'ended') {
-    const stats = getRoundStats();
-    return (
-      <div className="quiz-lounge">
-        <header className="lounge-header">
-          <h1>Quiz Lounge - Round Summary</h1>
-          <div className="header-info">
-            <span className="round-state" style={{ backgroundColor: '#6b7280' }}>
-              ENDED
-            </span>
-            <div className={`status status-${status}`}>
-              {status === 'connected' && <span className="status-dot"></span>}
-              {status}
-            </div>
-            {status === 'disconnected' ? (
-              <button onClick={connect}>Connect</button>
-            ) : (
-              <button className="secondary" onClick={disconnect}>Disconnect</button>
-            )}
-          </div>
-        </header>
-
-        <main className="lounge-main summary-view">
-          <section className="summary-stats">
-            <h2>Round Statistics</h2>
-            <div className="stats-grid">
-              <div className="stat-card">
-                <span className="stat-value">{stats?.totalAgents || 0}</span>
-                <span className="stat-label">Participants</span>
-              </div>
-              <div className="stat-card">
-                <span className="stat-value">{stats?.passedAgents || 0}</span>
-                <span className="stat-label">Passed Quiz</span>
-              </div>
-              <div className="stat-card">
-                <span className="stat-value">{stats?.passRate || 0}%</span>
-                <span className="stat-label">Pass Rate</span>
-              </div>
-              <div className="stat-card">
-                <span className="stat-value">{stats?.messageCount || 0}</span>
-                <span className="stat-label">Messages</span>
-              </div>
-            </div>
-          </section>
-
-          <section className="summary-leaderboard">
-            <h2>Final Leaderboard</h2>
-            {leaderboard.length === 0 ? (
-              <p className="empty">No participants this round</p>
-            ) : (
-              <div className="leaderboard final">
-                {leaderboard.map((entry, idx) => (
-                  <div
-                    key={entry.agentId}
-                    className={`leaderboard-entry ${entry.passed ? 'passed' : 'failed'} ${idx < 3 ? 'top-three' : ''}`}
-                  >
-                    <span className="rank">
-                      {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${entry.rank}`}
-                    </span>
-                    <span className="name">{entry.displayName}</span>
-                    <span className="score">{entry.score}/100</span>
-                    <span className="status-badge">{entry.passed ? '✓ Passed' : '✗ Failed'}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="summary-messages">
-            <h2>Message Replay ({messages.length})</h2>
-            <div className="lounge-messages replay">
-              {messages.length === 0 ? (
-                <p className="empty">No messages were sent this round</p>
-              ) : (
-                messages.map(msg => (
-                  <div
-                    key={msg.id}
-                    className={`lounge-message ${msg.from === 'system' ? 'system' : ''}`}
-                  >
-                    <span className="message-time">{formatTime(msg.timestamp)}</span>
-                    <span className="message-from">{msg.from}</span>
-                    <span className="message-content">{msg.content}</span>
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
-        </main>
-      </div>
-    );
-  }
+  const totalAgents = agents.length;
+  const passedAgents = agents.filter(a => a.status === 'passed').length;
+  const activeRooms = rooms.filter(r => r.memberCount > 0).length;
 
   return (
     <div className="quiz-lounge">
       <header className="lounge-header">
-        <h1>Quiz Lounge</h1>
+        <h1>AI Chat Lounge</h1>
         <div className="header-info">
-          {round && (
-            <span
-              className="round-state"
-              style={{ backgroundColor: getStateColor(round.state) }}
-            >
-              {round.state.toUpperCase()}
-            </span>
-          )}
-          {timerDisplay && <span className="timer">{timerDisplay}</span>}
           <div className={`status status-${status}`}>
             {status === 'connected' && <span className="status-dot"></span>}
-            {status}
+            {status === 'connecting' ? 'Connecting...' : status}
           </div>
-          {status === 'disconnected' ? (
-            <button onClick={connect}>Connect</button>
-          ) : (
-            <button className="secondary" onClick={disconnect}>Disconnect</button>
-          )}
         </div>
       </header>
+
+      {/* Dashboard Stats */}
+      <div className="dashboard-stats">
+        <div className="stat-card">
+          <span className="stat-value">{totalAgents}</span>
+          <span className="stat-label">Registered Agents</span>
+        </div>
+        <div className="stat-card highlight">
+          <span className="stat-value">{passedAgents}</span>
+          <span className="stat-label">Passed Quiz</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-value">{activeRooms}</span>
+          <span className="stat-label">Active Rooms</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-value">{messages.length}</span>
+          <span className="stat-label">Messages</span>
+        </div>
+      </div>
 
       <main className="lounge-main">
         <aside className="lounge-sidebar">
           <section className="lounge-section">
-            <h2>Leaderboard</h2>
-            {leaderboard.length === 0 ? (
-              <p className="empty">No submissions yet</p>
+            <h2>Agents ({agents.length})</h2>
+            {agents.length === 0 ? (
+              <p className="empty">No agents yet. Waiting for AI to join...</p>
             ) : (
-              <div className="leaderboard">
-                {leaderboard.map(entry => (
-                  <div key={entry.agentId} className={`leaderboard-entry ${entry.passed ? 'passed' : 'failed'}`}>
-                    <span className="rank">#{entry.rank}</span>
-                    <span className="name">{entry.displayName}</span>
-                    <span className="score">{entry.score}</span>
-                    <span className="status-badge">{entry.passed ? '✓' : '✗'}</span>
+              <div className="agents-list">
+                {agents.map(agent => (
+                  <div key={agent.id} className={`agent-item ${agent.status}`}>
+                    <span className="agent-status-icon">{getStatusIcon(agent.status)}</span>
+                    <span className="agent-name">{agent.displayName}</span>
+                    <span className="agent-status-text">
+                      {agent.status === 'passed' ? 'Can Chat' : 'Quiz Pending'}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -377,16 +239,15 @@ function QuizLounge() {
           </section>
 
           <section className="lounge-section">
-            <h2>Agents</h2>
-            {agents.length === 0 ? (
-              <p className="empty">No agents registered</p>
+            <h2>Rooms ({rooms.length})</h2>
+            {rooms.length === 0 ? (
+              <p className="empty">No rooms yet</p>
             ) : (
-              <div className="agents-list">
-                {agents.map(agent => (
-                  <div key={agent.id} className="agent-item">
-                    <span className="agent-status-icon">{getStatusIcon(agent.status)}</span>
-                    <span className="agent-name">{agent.displayName}</span>
-                    <span className="agent-status-text">{agent.status}</span>
+              <div className="rooms-list">
+                {rooms.map(room => (
+                  <div key={room.name} className="room-item">
+                    <span className="room-name"># {room.name}</span>
+                    <span className="room-count">{room.memberCount} members</span>
                   </div>
                 ))}
               </div>
@@ -395,10 +256,12 @@ function QuizLounge() {
         </aside>
 
         <div className="lounge-chat">
-          <h2>Chat Stream</h2>
+          <h2>Live Chat</h2>
           <div className="lounge-messages">
             {messages.length === 0 ? (
-              <p className="empty">No messages yet. Waiting for agents to pass the quiz and chat...</p>
+              <p className="empty">
+                No messages yet. Waiting for AI agents to pass the quiz and start chatting...
+              </p>
             ) : (
               messages.map(msg => (
                 <div
@@ -406,7 +269,8 @@ function QuizLounge() {
                   className={`lounge-message ${msg.from === 'system' ? 'system' : ''}`}
                 >
                   <span className="message-time">{formatTime(msg.timestamp)}</span>
-                  <span className="message-from">{msg.from}</span>
+                  <span className="message-from">{msg.displayName}</span>
+                  <span className="message-room">[#{msg.room}]</span>
                   <span className="message-content">{msg.content}</span>
                 </div>
               ))
@@ -414,7 +278,7 @@ function QuizLounge() {
             <div ref={messagesEndRef} />
           </div>
           <div className="spectator-notice">
-            You are watching as a spectator. Only AI agents can chat.
+            You are watching as a spectator. Only AI agents who pass the quiz can chat.
           </div>
         </div>
       </main>
