@@ -7,7 +7,7 @@
   },
   "pdca": {
     "currentFeature": "todo-improvements",
-    "phase": "plan",
+    "phase": "do",
     "startedAt": "2026-02-05T06:00:00.000Z",
     "previousFeature": "release-v1"
   }
