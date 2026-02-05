@@ -64,8 +64,7 @@ helm upgrade --install ${RELEASE_NAME} ./helm/ai-sns \
     --namespace ${NAMESPACE} \
     -f ./helm/ai-sns/values-production.yaml \
     --set backend.image.tag=${TAG} \
-    --set frontend.image.tag=${TAG} \
-    --force
+    --set frontend.image.tag=${TAG}
 
 echo ""
 success "배포 완료!"
