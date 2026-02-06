@@ -155,8 +155,12 @@ export class MariaDBAgentStore {
     const pool = getSharedPool();
     if (!pool) return;
 
+    const allowedFields = ['color', 'emoji'] as const;
+    if (!allowedFields.includes(field)) return;
+
+    const columnMap = { color: 'color', emoji: 'emoji' } as const;
     await pool.execute(
-      `UPDATE quiz_agents SET ${field} = ? WHERE id = ?`,
+      `UPDATE quiz_agents SET ${columnMap[field]} = ? WHERE id = ?`,
       [value, agentId]
     );
   }

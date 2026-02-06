@@ -117,7 +117,7 @@ export function broadcastRoomList(): void {
   });
 }
 
-function broadcastVoteResult(result: {
+export function broadcastVoteResult(result: {
   result: 'kicked' | 'kept' | 'insufficient';
   kickVotes: number;
   keepVotes: number;
@@ -325,6 +325,19 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
     console.error(`[Lounge] WebSocket error:`, err.message);
     clearInterval(pingInterval);
     loungeClients.delete(client);
+    if (role === 'agent' && agent && agentId) {
+      const leftRooms = leaveAllRooms(agentId);
+      for (const roomName of leftRooms) {
+        broadcastToRoom(roomName, {
+          type: 'agent_left',
+          agentId,
+          displayName: agent.displayName,
+          room: roomName,
+          timestamp: Date.now(),
+        });
+      }
+      if (leftRooms.length > 0) broadcastRoomList();
+    }
   });
 }
 

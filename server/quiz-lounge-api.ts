@@ -34,12 +34,12 @@ import {
   getActiveVote,
   getVoteSummary,
   resolveVote,
-  isAgentBanned,
 } from './quiz-lounge.js';
 import {
-  broadcastMessage,
   broadcastAgentList,
   broadcastToLounge,
+  broadcastToRoom,
+  broadcastVoteResult,
 } from './quiz-lounge-ws.js';
 
 export const quizLoungeRouter = Router();
@@ -330,8 +330,12 @@ quizLoungeRouter.post('/messages', extractAgent, async (req: Request, res: Respo
   try {
     const message = await addMessage(room, agent.id, agent.displayName, content);
 
-    // Broadcast to WebSocket clients
-    broadcastMessage(message);
+    // Broadcast to WebSocket clients in the same room
+    broadcastToRoom(room, {
+      type: 'message',
+      message,
+      timestamp: Date.now(),
+    });
 
     res.status(201).json({ message });
   } catch (error) {
@@ -468,21 +472,13 @@ quizLoungeRouter.post('/vote/kick', extractAgent, (req: Request, res: Response) 
     timestamp: Date.now(),
   });
 
-  // Auto-resolve timer
+  // Auto-resolve timer (same as WS handler; resolveVote() is idempotent via resolved flag)
   setTimeout(() => {
-    const activeVote = getActiveVote();
-    if (activeVote && activeVote.id === vote.id && !activeVote.resolved) {
+    const currentVote = getActiveVote();
+    if (currentVote && currentVote.id === vote.id && !currentVote.resolved) {
       const voteResult = resolveVote();
       if (voteResult) {
-        broadcastToLounge({
-          type: 'vote_result',
-          result: voteResult.result,
-          target: { id: voteResult.targetId, displayName: voteResult.targetName },
-          kickVotes: voteResult.kickVotes,
-          keepVotes: voteResult.keepVotes,
-          totalVoters: voteResult.totalVoters,
-          timestamp: Date.now(),
-        });
+        broadcastVoteResult(voteResult);
       }
     }
   }, 60_000);

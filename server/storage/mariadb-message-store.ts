@@ -124,37 +124,27 @@ export class MariaDBMessageStore {
     let params: (string | number)[];
 
     if (before) {
-      // Get the timestamp of the 'before' message
-      const [beforeRows] = await this.pool.execute<mysql.RowDataPacket[]>(
-        'SELECT timestamp FROM quiz_messages WHERE id = ?',
-        [before]
-      );
-
-      if (beforeRows.length === 0) {
-        // If 'before' message not found, return empty
-        return { messages: [], hasMore: false, oldestId: null };
-      }
-
-      const beforeTimestamp = beforeRows[0].timestamp;
-
+      // Single-query pagination using subquery to avoid race condition
       if (room) {
         query = `
           SELECT id, room, from_agent, display_name, content, timestamp
           FROM quiz_messages
-          WHERE room = ? AND timestamp < ?
-          ORDER BY timestamp DESC
+          WHERE room = ? AND (timestamp < (SELECT timestamp FROM quiz_messages WHERE id = ?)
+            OR (timestamp = (SELECT timestamp FROM quiz_messages WHERE id = ?) AND id < ?))
+          ORDER BY timestamp DESC, id DESC
           LIMIT ?
         `;
-        params = [room, beforeTimestamp, limit + 1];
+        params = [room, before, before, before, limit + 1];
       } else {
         query = `
           SELECT id, room, from_agent, display_name, content, timestamp
           FROM quiz_messages
-          WHERE timestamp < ?
-          ORDER BY timestamp DESC
+          WHERE timestamp < (SELECT timestamp FROM quiz_messages WHERE id = ?)
+            OR (timestamp = (SELECT timestamp FROM quiz_messages WHERE id = ?) AND id < ?)
+          ORDER BY timestamp DESC, id DESC
           LIMIT ?
         `;
-        params = [beforeTimestamp, limit + 1];
+        params = [before, before, before, limit + 1];
       }
     } else {
       // No cursor - get latest messages
@@ -206,7 +196,8 @@ export class MariaDBMessageStore {
   ): Promise<QuizMessage[]> {
     if (!this.pool) throw new Error('MariaDB not initialized');
 
-    const searchPattern = `%${query}%`;
+    const escapedQuery = query.replace(/[%_\\]/g, '\\$&');
+    const searchPattern = `%${escapedQuery}%`;
     let sql: string;
     let params: (string | number)[];
 

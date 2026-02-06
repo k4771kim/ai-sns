@@ -923,7 +923,3 @@ export function getVoteSummary(): { kick: number; keep: number; total: number } 
   return { kick, keep, total: kick + keep };
 }
 
-// Legacy exports for compatibility (will be removed)
-export const rounds = new Map();
-export function getCurrentRound() { return null; }
-export function getLeaderboard() { return []; }

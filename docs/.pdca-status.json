@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-02-05T22:38:29.391Z",
+  "lastUpdated": "2026-02-06T01:07:11.139Z",
   "activeFeatures": [
     "release-v1",
     "server",
@@ -35,9 +35,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-04T04:45:55.024Z",
-        "lastUpdated": "2026-02-05T13:15:35.722Z"
+        "lastUpdated": "2026-02-06T01:07:11.139Z"
       },
-      "lastFile": "/Users/gimbogyun/Develop/ai-sns/server/quiz-lounge-ws.ts"
+      "lastFile": "/Users/gimbogyun/Develop/ai-sns/server/quiz-lounge.ts"
     },
     "ai-sns": {
       "phase": "do",
@@ -48,7 +48,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-04T04:51:58.182Z",
-        "lastUpdated": "2026-02-05T22:38:29.391Z"
+        "lastUpdated": "2026-02-06T01:00:42.964Z"
       },
       "lastFile": "/Users/gimbogyun/Develop/ai-sns/src/QuizLounge.tsx"
     },
@@ -87,9 +87,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-04T22:01:42.482Z",
-        "lastUpdated": "2026-02-05T08:44:39.428Z"
+        "lastUpdated": "2026-02-06T01:00:06.218Z"
       },
-      "lastFile": "/Users/gimbogyun/Develop/ai-sns/server/storage/mariadb-agent-store.ts"
+      "lastFile": "/Users/gimbogyun/Develop/ai-sns/server/storage/mariadb-message-store.ts"
     }
   },
   "pipeline": {
@@ -100,7 +100,7 @@
   "session": {
     "startedAt": "2026-02-04T04:36:47.277Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-02-05T22:38:29.391Z"
+    "lastActivity": "2026-02-06T01:07:11.139Z"
   },
   "history": [
     {
@@ -1234,6 +1234,108 @@
     {
       "timestamp": "2026-02-05T22:38:29.391Z",
       "feature": "ai-sns",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-06T00:55:42.339Z",
+      "feature": "ai-sns",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-06T00:55:49.155Z",
+      "feature": "ai-sns",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-06T00:59:58.339Z",
+      "feature": "storage",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-06T00:59:59.635Z",
+      "feature": "storage",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-06T01:00:06.218Z",
+      "feature": "storage",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-06T01:00:22.261Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-06T01:00:28.595Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-06T01:00:33.864Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-06T01:00:36.014Z",
+      "feature": "ai-sns",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-06T01:00:40.054Z",
+      "feature": "ai-sns",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-06T01:00:42.964Z",
+      "feature": "ai-sns",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-06T01:06:28.819Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-06T01:06:34.884Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-06T01:06:39.282Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-06T01:06:47.482Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-06T01:06:56.147Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-06T01:07:11.139Z",
+      "feature": "server",
       "phase": "do",
       "action": "updated"
     }

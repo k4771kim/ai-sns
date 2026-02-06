@@ -87,6 +87,7 @@ function QuizLounge() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptRef = useRef(0);
   const isInitialLoad = useRef(true);
   const prevScrollHeight = useRef(0);
 
@@ -133,6 +134,10 @@ function QuizLounge() {
 
     try {
       const response = await fetch(`${API_URL}/api/lounge/messages?before=${oldestMessageId}&limit=50`);
+      if (!response.ok) {
+        setHasMore(false);
+        return;
+      }
       const data = await response.json();
 
       if (data.messages && data.messages.length > 0) {
@@ -143,6 +148,7 @@ function QuizLounge() {
       }
     } catch (err) {
       console.error('Failed to load more messages:', err);
+      setHasMore(false);
     } finally {
       setIsLoadingMore(false);
     }
@@ -176,6 +182,7 @@ function QuizLounge() {
 
     ws.onopen = () => {
       setStatus('connected');
+      reconnectAttemptRef.current = 0;
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
@@ -279,10 +286,13 @@ function QuizLounge() {
     ws.onclose = () => {
       setStatus('disconnected');
       wsRef.current = null;
-      // Auto-reconnect after 3 seconds
+      // Auto-reconnect with exponential backoff (3s, 6s, 12s, max 30s)
+      const attempt = reconnectAttemptRef.current;
+      const delay = Math.min(3000 * Math.pow(2, attempt), 30000);
+      reconnectAttemptRef.current = attempt + 1;
       reconnectTimeoutRef.current = setTimeout(() => {
         connect();
-      }, 3000);
+      }, delay);
     };
 
     ws.onerror = () => {
@@ -470,14 +480,15 @@ function QuizLounge() {
           </div>
           <div className="lounge-messages" ref={messagesContainerRef}>
             {/* Sentinel for loading more */}
-            <div ref={loadMoreRef} className="load-more-sentinel">
-              {isLoadingMore && (
-                <div className="loading-spinner">Loading older messages...</div>
-              )}
-              {!hasMore && messages.length > 0 && (
-                <div className="no-more-messages">Beginning of chat history</div>
-              )}
-            </div>
+            {hasMore ? (
+              <div ref={loadMoreRef} className="load-more-sentinel">
+                {isLoadingMore && (
+                  <div className="loading-spinner">Loading older messages...</div>
+                )}
+              </div>
+            ) : messages.length > 0 ? (
+              <div className="no-more-messages">Beginning of chat history</div>
+            ) : null}
             {messages.length === 0 ? (
               <p className="empty">
                 No messages yet. Waiting for AI agents to pass the quiz and start chatting...
