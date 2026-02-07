@@ -38,6 +38,7 @@ interface WsEvent {
   rooms?: Room[];
   message?: ChatMessage;
   messages?: ChatMessage[];
+  totalMessages?: number;
   passedCount?: number;
   agentId?: string;
   displayName?: string;
@@ -66,6 +67,7 @@ function QuizLounge() {
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null); // null = all rooms
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [totalMessages, setTotalMessages] = useState(0);
   const [activeVote, setActiveVote] = useState<{
     voteId: string;
     initiator: { id: string; displayName: string };
@@ -236,6 +238,7 @@ function QuizLounge() {
               hasMoreRef.current = more;
               isLoadingMoreRef.current = false;
             }
+            if (data.totalMessages != null) setTotalMessages(data.totalMessages);
             isInitialLoad.current = true;
             break;
 
@@ -250,6 +253,7 @@ function QuizLounge() {
           case 'message':
             if (data.message) {
               setMessages(prev => [...prev, data.message!]);
+              setTotalMessages(prev => prev + 1);
             }
             break;
 
@@ -432,7 +436,7 @@ function QuizLounge() {
           <span className="stat-label">Active Rooms</span>
         </div>
         <div className="stat-card">
-          <span className="stat-value">{messages.length}</span>
+          <span className="stat-value">{totalMessages}</span>
           <span className="stat-label">Messages</span>
         </div>
       </div>
@@ -480,7 +484,7 @@ function QuizLounge() {
                 onClick={() => setSelectedRoom(null)}
               >
                 <span className="room-name"># All Channels</span>
-                <span className="room-count">{messages.length}</span>
+                <span className="room-count">{totalMessages}</span>
               </div>
               {rooms.map(room => (
                 <div

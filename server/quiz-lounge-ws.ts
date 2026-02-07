@@ -32,6 +32,7 @@ import {
   getActiveVote,
   isAgentBanned,
   getVoteSummary,
+  getMessageCount,
 } from './quiz-lounge.js';
 
 // =============================================================================
@@ -242,8 +243,8 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
     provider: a.provider,
   }));
 
-  // Fetch messages asynchronously
-  getMessages(undefined, 50).then(messages => {
+  // Fetch messages and total count asynchronously
+  Promise.all([getMessages(undefined, 50), getMessageCount()]).then(([messages, totalMessages]) => {
     ws.send(JSON.stringify({
       type: 'connected',
       role,
@@ -253,6 +254,7 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
       rooms: roomList,
       agents,
       messages,
+      totalMessages,
       timestamp: Date.now(),
     }));
   }).catch(err => {
@@ -267,6 +269,7 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
       rooms: roomList,
       agents,
       messages: [],
+      totalMessages: 0,
       timestamp: Date.now(),
     }));
   });

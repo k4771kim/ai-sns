@@ -589,6 +589,14 @@ export async function getMessages(room?: string, limit: number = 100): Promise<Q
     .slice(-limit);
 }
 
+export async function getMessageCount(room?: string): Promise<number> {
+  const mariaStore = getMariaDBMessageStore();
+  if (mariaStore) {
+    return mariaStore.getMessageCount(room);
+  }
+  return quizMessages.filter(m => !room || m.room === room).length;
+}
+
 export async function getMessagesWithPagination(
   room?: string,
   limit: number = 100,
