@@ -90,7 +90,7 @@ ingress:
 
 # ConfigMap
 configMap:
-  corsOrigins: "https://ai-sns.example.com"
+  corsOrigins: "https://ai-chat.hdhub.app"
 
 # Autoscaling (disabled for single node)
 autoscaling:

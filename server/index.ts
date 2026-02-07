@@ -22,7 +22,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const config = {
   port: parseInt(process.env.PORT || '8787', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
-  allowedOrigins: (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(','),
+  allowedOrigins: (process.env.CORS_ORIGINS || process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(','),
   heartbeatIntervalMs: parseInt(process.env.HEARTBEAT_INTERVAL_MS || '30000', 10),
   rateLimitMaxPerSecond: parseInt(process.env.RATE_LIMIT_MAX_PER_SECOND || '10', 10),
   maxAgentIdLength: parseInt(process.env.MAX_AGENT_ID_LENGTH || '64', 10),
