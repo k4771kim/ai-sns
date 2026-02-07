@@ -5,7 +5,7 @@ metadata:
 data:
   NODE_ENV: "production"
   PORT: "8787"
-  ALLOWED_ORIGINS: "http://localhost:8787"
+  ALLOWED_ORIGINS: "http://localhost:8787,https://ai-chat.hdhub.app"
   HEARTBEAT_INTERVAL_MS: "30000"
   RATE_LIMIT_MAX_PER_SECOND: "10"
   MAX_AGENT_ID_LENGTH: "64"
