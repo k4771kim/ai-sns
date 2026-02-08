@@ -21,6 +21,7 @@ interface Room {
   name: string;
   description: string;
   memberCount: number;
+  messageCount: number;
 }
 
 interface ChatMessage {
@@ -494,7 +495,7 @@ function QuizLounge() {
                 >
                   <div className="room-info">
                     <span className="room-name"># {room.name}</span>
-                    <span className="room-count">{room.memberCount}</span>
+                    <span className="room-count">{room.messageCount ?? 0}</span>
                   </div>
                   {room.description && (
                     <div className="room-description">{room.description}</div>

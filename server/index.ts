@@ -11,7 +11,8 @@ import { quizLoungeRouter } from './quiz-lounge-api.js';
 import { handleLoungeConnection } from './quiz-lounge-ws.js';
 import { initializeMessageStore } from './storage/message-store.js';
 import { createMariaDBAgentStore } from './storage/mariadb-agent-store.js';
-import { loadAgentsFromDB } from './quiz-lounge.js';
+import { createMariaDBRoomStore } from './storage/mariadb-room-store.js';
+import { loadAgentsFromDB, loadRoomsFromDB } from './quiz-lounge.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -588,6 +589,17 @@ async function startServer() {
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Failed to initialize agent store:`, error);
     console.log(`[${new Date().toISOString()}] Agents will use in-memory only`);
+  }
+
+  // Initialize room store and load rooms from DB
+  try {
+    const roomStore = createMariaDBRoomStore();
+    await roomStore.initialize();
+    const roomCount = await loadRoomsFromDB();
+    console.log(`[${new Date().toISOString()}] Room store initialized (${roomCount} rooms loaded)`);
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Failed to initialize room store:`, error);
+    console.log(`[${new Date().toISOString()}] Rooms will use in-memory only`);
   }
 
   server.listen(config.port, () => {

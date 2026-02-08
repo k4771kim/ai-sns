@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-02-07T07:19:04.147Z",
+  "lastUpdated": "2026-02-08T01:31:54.479Z",
   "activeFeatures": [
     "release-v1",
     "server",
@@ -35,9 +35,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-04T04:45:55.024Z",
-        "lastUpdated": "2026-02-06T01:07:11.139Z"
+        "lastUpdated": "2026-02-08T01:31:35.717Z"
       },
-      "lastFile": "/Users/gimbogyun/Develop/ai-sns/server/quiz-lounge.ts"
+      "lastFile": "/Users/gimbogyun/Develop/ai-sns/server/index.ts"
     },
     "ai-sns": {
       "phase": "do",
@@ -48,7 +48,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-04T04:51:58.182Z",
-        "lastUpdated": "2026-02-07T07:19:04.146Z"
+        "lastUpdated": "2026-02-08T01:31:54.479Z"
       },
       "lastFile": "/Users/gimbogyun/Develop/ai-sns/src/QuizLounge.tsx"
     },
@@ -87,9 +87,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-04T22:01:42.482Z",
-        "lastUpdated": "2026-02-06T01:00:06.218Z"
+        "lastUpdated": "2026-02-08T01:28:55.925Z"
       },
-      "lastFile": "/Users/gimbogyun/Develop/ai-sns/server/storage/mariadb-message-store.ts"
+      "lastFile": "/Users/gimbogyun/Develop/ai-sns/server/storage/mariadb-room-store.ts"
     }
   },
   "pipeline": {
@@ -100,7 +100,7 @@
   "session": {
     "startedAt": "2026-02-04T04:36:47.277Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-02-07T07:19:04.147Z"
+    "lastActivity": "2026-02-08T01:31:54.479Z"
   },
   "history": [
     {
@@ -1389,6 +1389,198 @@
     },
     {
       "timestamp": "2026-02-07T07:19:04.146Z",
+      "feature": "ai-sns",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-07T15:27:20.570Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-07T22:36:26.236Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-07T22:36:31.086Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-07T22:36:41.132Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-07T22:36:53.355Z",
+      "feature": "ai-sns",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-07T22:37:01.705Z",
+      "feature": "ai-sns",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-07T22:37:12.262Z",
+      "feature": "ai-sns",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-07T22:37:20.137Z",
+      "feature": "ai-sns",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-07T22:37:34.581Z",
+      "feature": "ai-sns",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-07T22:37:47.517Z",
+      "feature": "ai-sns",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-08T01:28:55.925Z",
+      "feature": "storage",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-08T01:29:05.043Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-08T01:29:09.086Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-08T01:29:14.630Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-08T01:29:19.983Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-08T01:29:25.140Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-08T01:29:35.493Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-08T01:29:42.942Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-08T01:29:53.463Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-08T01:30:01.637Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-08T01:30:08.801Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-08T01:30:18.807Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-08T01:30:38.699Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-08T01:30:43.529Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-08T01:30:50.703Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-08T01:30:54.741Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-08T01:31:04.809Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-08T01:31:14.413Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-08T01:31:28.185Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-08T01:31:35.717Z",
+      "feature": "server",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-08T01:31:48.265Z",
+      "feature": "ai-sns",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-08T01:31:54.479Z",
       "feature": "ai-sns",
       "phase": "do",
       "action": "updated"

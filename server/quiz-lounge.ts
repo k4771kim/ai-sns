@@ -8,6 +8,7 @@
 import crypto from 'crypto';
 import { getMariaDBMessageStore } from './storage/mariadb-message-store.js';
 import { getMariaDBAgentStore } from './storage/mariadb-agent-store.js';
+import { getMariaDBRoomStore } from './storage/mariadb-room-store.js';
 
 // =============================================================================
 // Types
@@ -84,7 +85,7 @@ export const quizMessages: QuizMessage[] = [];
 export const loungeRooms = new Map<string, LoungeRoom>();
 
 // Initialize default rooms
-const DEFAULT_ROOMS: Array<{ name: string; description: string; prompt: string }> = [
+export const DEFAULT_ROOMS: Array<{ name: string; description: string; prompt: string }> = [
   {
     name: 'general',
     description: 'General chat — talk about anything',
@@ -437,21 +438,15 @@ export function leaveRoom(roomName: string, agentId: string): boolean {
   const room = loungeRooms.get(roomName);
   if (!room) return false;
   room.members.delete(agentId);
-  if (room.members.size === 0 && room.createdBy !== null) {
-    loungeRooms.delete(roomName);
-  }
   return true;
 }
 
 export function leaveAllRooms(agentId: string): string[] {
   const leftRooms: string[] = [];
-  for (const [name, room] of loungeRooms) {
+  for (const [, room] of loungeRooms) {
     if (room.members.has(agentId)) {
       room.members.delete(agentId);
-      leftRooms.push(name);
-      if (room.members.size === 0 && room.createdBy !== null) {
-        loungeRooms.delete(name);
-      }
+      leftRooms.push(room.name);
     }
   }
   return leftRooms;
@@ -472,11 +467,16 @@ export function getAgentRooms(agentId: string): string[] {
   return rooms;
 }
 
-export function listRooms(): Array<{ name: string; description: string; memberCount: number }> {
-  return Array.from(loungeRooms.values()).map(r => ({
+export async function listRooms(): Promise<Array<{ name: string; description: string; memberCount: number; messageCount: number }>> {
+  const roomList = Array.from(loungeRooms.values());
+  const counts = await Promise.all(
+    roomList.map(r => getMessageCount(r.name))
+  );
+  return roomList.map((r, i) => ({
     name: r.name,
     description: r.description,
     memberCount: r.members.size,
+    messageCount: counts[i],
   }));
 }
 
@@ -524,6 +524,22 @@ export function createRoom(
     createdAt: Date.now(),
   };
   loungeRooms.set(name, room);
+
+  // Persist to DB
+  const roomStore = getMariaDBRoomStore();
+  if (roomStore) {
+    roomStore.saveRoom({
+      name: room.name,
+      description: room.description,
+      prompt: room.prompt,
+      createdBy: room.createdBy,
+      createdAt: room.createdAt,
+      isDefault: false,
+    }).catch(err => {
+      console.error('[Lounge] Failed to save room to DB:', err);
+    });
+  }
+
   return { success: true, room };
 }
 
@@ -547,7 +563,84 @@ export function updateRoom(
     }
     room.prompt = updates.prompt;
   }
+
+  // Persist to DB
+  const roomStore = getMariaDBRoomStore();
+  if (roomStore) {
+    roomStore.updateRoom(name, updates).catch(err => {
+      console.error('[Lounge] Failed to update room in DB:', err);
+    });
+  }
+
   return { success: true };
+}
+
+export async function deleteRoom(name: string): Promise<{ success: boolean; error?: string }> {
+  const room = loungeRooms.get(name);
+  if (!room) {
+    return { success: false, error: 'Room not found' };
+  }
+  // Check if it's a default room
+  if (DEFAULT_ROOMS.some(r => r.name === name)) {
+    return { success: false, error: 'Cannot delete default rooms' };
+  }
+
+  loungeRooms.delete(name);
+
+  // Delete from DB
+  const roomStore = getMariaDBRoomStore();
+  if (roomStore) {
+    try {
+      await roomStore.deleteRoom(name);
+    } catch (err) {
+      console.error('[Lounge] Failed to delete room from DB:', err);
+    }
+  }
+
+  return { success: true };
+}
+
+// =============================================================================
+// DB Load Rooms (server startup)
+// =============================================================================
+
+export async function loadRoomsFromDB(): Promise<number> {
+  const roomStore = getMariaDBRoomStore();
+  if (!roomStore) return 0;
+
+  try {
+    // Seed default rooms into DB
+    for (const room of DEFAULT_ROOMS) {
+      await roomStore.saveRoom({
+        name: room.name,
+        description: room.description,
+        prompt: room.prompt,
+        createdBy: null,
+        createdAt: Date.now(),
+        isDefault: true,
+      });
+    }
+
+    // Load all rooms from DB
+    const storedRooms = await roomStore.loadAllRooms();
+    for (const stored of storedRooms) {
+      // Preserve existing members if room is already in memory
+      const existing = loungeRooms.get(stored.name);
+      loungeRooms.set(stored.name, {
+        name: stored.name,
+        description: stored.description,
+        prompt: stored.prompt,
+        members: existing?.members ?? new Set(),
+        createdBy: stored.createdBy,
+        createdAt: stored.createdAt,
+      });
+    }
+    console.log(`[Lounge] Loaded ${storedRooms.length} rooms from DB`);
+    return storedRooms.length;
+  } catch (err) {
+    console.error('[Lounge] Failed to load rooms from DB:', err);
+    return 0;
+  }
 }
 
 // =============================================================================

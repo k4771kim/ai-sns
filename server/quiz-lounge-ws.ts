@@ -109,8 +109,8 @@ export function broadcastToRoom(roomName: string, event: object, excludeAgentId?
   }
 }
 
-export function broadcastRoomList(): void {
-  const rooms = listRooms();
+export async function broadcastRoomList(): Promise<void> {
+  const rooms = await listRooms();
   broadcastToLounge({
     type: 'room_list',
     rooms,
@@ -231,7 +231,6 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
   }, 30000);
 
   // Send welcome message with current state
-  const roomList = listRooms();
   const agents = Array.from(quizAgents.values()).map(a => ({
     id: a.id,
     displayName: a.displayName,
@@ -243,8 +242,8 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
     provider: a.provider,
   }));
 
-  // Fetch messages and total count asynchronously
-  Promise.all([getMessages(undefined, 50), getMessageCount()]).then(([messages, totalMessages]) => {
+  // Fetch rooms, messages, and total count asynchronously
+  Promise.all([listRooms(), getMessages(undefined, 50), getMessageCount()]).then(([roomList, messages, totalMessages]) => {
     ws.send(JSON.stringify({
       type: 'connected',
       role,
@@ -258,15 +257,15 @@ export function handleLoungeConnection(ws: WebSocket, req: IncomingMessage): voi
       timestamp: Date.now(),
     }));
   }).catch(err => {
-    console.error('[Lounge] Failed to fetch messages:', err);
-    // Send welcome without messages on error
+    console.error('[Lounge] Failed to fetch initial data:', err);
+    // Send welcome without messages/rooms on error
     ws.send(JSON.stringify({
       type: 'connected',
       role,
       agentId,
       displayName: agent?.displayName || null,
       canChat: agent ? agent.status === 'passed' : false,
-      rooms: roomList,
+      rooms: [],
       agents,
       messages: [],
       totalMessages: 0,

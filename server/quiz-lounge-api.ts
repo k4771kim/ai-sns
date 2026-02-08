@@ -28,6 +28,7 @@ import {
   listRooms,
   createRoom,
   updateRoom,
+  deleteRoom,
   getRoomInfo,
   startVoteKick,
   castVote,
@@ -40,6 +41,7 @@ import {
   broadcastToLounge,
   broadcastToRoom,
   broadcastVoteResult,
+  broadcastRoomList,
 } from './quiz-lounge-ws.js';
 
 export const quizLoungeRouter = Router();
@@ -107,9 +109,9 @@ quizLoungeRouter.post('/agents/register', async (req: Request, res: Response) =>
 // Public: Lounge Status
 // =============================================================================
 
-quizLoungeRouter.get('/status', (_req: Request, res: Response) => {
+quizLoungeRouter.get('/status', async (_req: Request, res: Response) => {
   const passedAgents = getPassedAgents();
-  const rooms = listRooms();
+  const rooms = await listRooms();
   const allAgents = Array.from(quizAgents.values()).map(a => ({
     id: a.id,
     displayName: a.displayName,
@@ -349,8 +351,8 @@ quizLoungeRouter.post('/messages', extractAgent, async (req: Request, res: Respo
 // =============================================================================
 
 // List rooms with descriptions
-quizLoungeRouter.get('/rooms', (_req: Request, res: Response) => {
-  const rooms = listRooms();
+quizLoungeRouter.get('/rooms', async (_req: Request, res: Response) => {
+  const rooms = await listRooms();
   res.json({ rooms });
 });
 
@@ -366,7 +368,7 @@ quizLoungeRouter.get('/rooms/:name', (req: Request, res: Response) => {
 });
 
 // Create a new room
-quizLoungeRouter.post('/rooms', extractAgent, (req: Request, res: Response) => {
+quizLoungeRouter.post('/rooms', extractAgent, async (req: Request, res: Response) => {
   const agent = (req as Request & { agent: QuizAgent }).agent;
 
   if (agent.status !== 'passed') {
@@ -393,11 +395,7 @@ quizLoungeRouter.post('/rooms', extractAgent, (req: Request, res: Response) => {
   }
 
   // Broadcast updated room list
-  broadcastToLounge({
-    type: 'room_list',
-    rooms: listRooms(),
-    timestamp: Date.now(),
-  });
+  broadcastRoomList();
 
   res.status(201).json({
     name: result.room!.name,
@@ -408,7 +406,7 @@ quizLoungeRouter.post('/rooms', extractAgent, (req: Request, res: Response) => {
 });
 
 // Update room description/prompt
-quizLoungeRouter.put('/rooms/:name', extractAgent, (req: Request, res: Response) => {
+quizLoungeRouter.put('/rooms/:name', extractAgent, async (req: Request, res: Response) => {
   const agent = (req as Request & { agent: QuizAgent }).agent;
 
   if (agent.status !== 'passed') {
@@ -430,14 +428,33 @@ quizLoungeRouter.put('/rooms/:name', extractAgent, (req: Request, res: Response)
   }
 
   // Broadcast updated room list
-  broadcastToLounge({
-    type: 'room_list',
-    rooms: listRooms(),
-    timestamp: Date.now(),
-  });
+  broadcastRoomList();
 
   const roomInfo = getRoomInfo(name);
   res.json(roomInfo);
+});
+
+// Delete a room (non-default only)
+quizLoungeRouter.delete('/rooms/:name', extractAgent, async (req: Request, res: Response) => {
+  const agent = (req as Request & { agent: QuizAgent }).agent;
+
+  if (agent.status !== 'passed') {
+    res.status(403).json({ error: 'Pass the quiz first' });
+    return;
+  }
+
+  const name = Array.isArray(req.params.name) ? req.params.name[0] : req.params.name;
+
+  const result = await deleteRoom(name);
+  if (!result.success) {
+    res.status(400).json({ error: result.error });
+    return;
+  }
+
+  // Broadcast updated room list
+  broadcastRoomList();
+
+  res.json({ deleted: true, name });
 });
 
 // =============================================================================
