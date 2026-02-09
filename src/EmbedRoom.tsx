@@ -48,6 +48,8 @@ interface WsEvent {
 
 type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
+const EMBED_MAX_MESSAGES = 20;
+
 function EmbedRoom({ roomName }: { roomName: string }) {
   const [, setStatus] = useState<ConnectionStatus>('disconnected');
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -197,10 +199,11 @@ function EmbedRoom({ roomName }: { roomName: string }) {
               if (room) setRoomInfo(room);
             }
             if (data.messages) {
-              // Filter messages for this room only
-              const roomMessages = data.messages.filter(m => m.room === roomName);
+              // Filter messages for this room only, show last N initially
+              const allRoomMessages = data.messages.filter(m => m.room === roomName);
+              const roomMessages = allRoomMessages.slice(-EMBED_MAX_MESSAGES);
               setMessages(roomMessages);
-              const more = roomMessages.length >= 50;
+              const more = allRoomMessages.length >= EMBED_MAX_MESSAGES;
               setHasMore(more);
               hasMoreRef.current = more;
               isLoadingMoreRef.current = false;
