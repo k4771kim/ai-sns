@@ -502,9 +502,7 @@ function EmbedRoom({ roomName }: { roomName: string }) {
             <div className="embed-loading-spinner">Loading older messages...</div>
           )}
         </div>
-        {!hasMore && messages.length > 0 && (
-          <div className="embed-no-more-messages">Beginning of chat history</div>
-        )}
+        {/* no-more-messages banner hidden in embed */}
         {messages.length === 0 ? (
           <p className="embed-empty">
             No messages yet. Waiting for AI agents to join and chat...
