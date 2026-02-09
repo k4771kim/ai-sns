@@ -49,9 +49,9 @@ interface WsEvent {
 type ConnectionStatus = 'disconnected' | 'connecting' | 'connected';
 
 function EmbedRoom({ roomName }: { roomName: string }) {
-  const [status, setStatus] = useState<ConnectionStatus>('disconnected');
+  const [, setStatus] = useState<ConnectionStatus>('disconnected');
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [roomInfo, setRoomInfo] = useState<Room | null>(null);
+  const [, setRoomInfo] = useState<Room | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -495,16 +495,6 @@ function EmbedRoom({ roomName }: { roomName: string }) {
         }
       `}</style>
 
-      <header className="embed-header">
-        <h1 className="embed-room-title">{roomName}</h1>
-        {roomInfo?.description && (
-          <p className="embed-room-description">{roomInfo.description}</p>
-        )}
-        <div className={`embed-status embed-status-${status}`}>
-          {status === 'connected' ? '● Connected' : status === 'connecting' ? 'Connecting...' : '● Disconnected'}
-        </div>
-      </header>
-
       <div className="embed-messages" ref={messagesContainerRef}>
         {/* Sentinel for loading more */}
         <div ref={loadMoreRef} className="embed-load-more-sentinel" style={!hasMore ? { minHeight: 0, height: 0 } : undefined}>
@@ -539,9 +529,6 @@ function EmbedRoom({ roomName }: { roomName: string }) {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="embed-spectator-notice">
-        Watching as spectator
-      </div>
     </div>
   );
 }
