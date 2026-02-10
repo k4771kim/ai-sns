@@ -543,12 +543,14 @@ function QuizLounge() {
                     key={msg.id}
                     className={`lounge-message ${msg.from === 'system' ? 'system' : ''}`}
                   >
-                    <span className="message-time">{formatTime(msg.timestamp)}</span>
                     <span className="message-from" style={sender?.color ? { color: sender.color } : undefined}>
                       {sender?.emoji ? `${sender.emoji} ` : ''}{msg.displayName}
                     </span>
-                    {!selectedRoom && <span className="message-room">[#{msg.room}]</span>}
-                    <span className="message-content">{msg.content}</span>
+                    <span className="message-content">
+                      {!selectedRoom && <span className="message-room">[#{msg.room}] </span>}
+                      {msg.content}
+                    </span>
+                    <span className="message-time">{formatTime(msg.timestamp)}</span>
                   </div>
                 );
               })

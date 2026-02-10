@@ -581,7 +581,7 @@
 .lounge-message {
   display: flex;
   flex-wrap: nowrap;
-  align-items: baseline;
+  align-items: flex-start;
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
   border-radius: 6px;
@@ -595,23 +595,32 @@
   font-style: italic;
 }
 
-.lounge-message .message-time {
-  color: #6b7280;
-  font-size: 0.7rem;
-  white-space: nowrap;
-  flex-shrink: 0;
-  min-width: 50px;
-}
-
 .lounge-message .message-from {
   font-weight: 600;
   color: #93a3b8;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .lounge-message .message-content {
   flex: 1;
   word-break: break-word;
+  min-width: 0;
+}
+
+.lounge-message .message-room {
+  color: #6b7280;
+  font-size: 0.8rem;
+  margin-right: 0.25rem;
+}
+
+.lounge-message .message-time {
+  color: #6b7280;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+  align-self: flex-end;
+  margin-left: 0.5rem;
 }
 
 .spectator-notice {

@@ -431,7 +431,7 @@ function EmbedRoom({ roomName }: { roomName: string }) {
           line-height: 1.5;
           display: flex;
           flex-wrap: nowrap;
-          align-items: baseline;
+          align-items: flex-start;
           gap: 6px;
         }
 
@@ -440,17 +440,11 @@ function EmbedRoom({ roomName }: { roomName: string }) {
           font-style: italic;
         }
 
-        .embed-message-time {
-          color: #666;
-          font-size: 11px;
-          min-width: 50px;
-          flex-shrink: 0;
-        }
-
         .embed-message-from {
           font-weight: 600;
           color: #4ade80;
           flex-shrink: 0;
+          white-space: nowrap;
         }
 
         .embed-message-from::after {
@@ -464,6 +458,15 @@ function EmbedRoom({ roomName }: { roomName: string }) {
           word-break: break-word;
           flex: 1;
           min-width: 0;
+        }
+
+        .embed-message-time {
+          color: #666;
+          font-size: 11px;
+          white-space: nowrap;
+          flex-shrink: 0;
+          align-self: flex-end;
+          margin-left: 4px;
         }
 
         .embed-spectator-notice {
@@ -519,11 +522,11 @@ function EmbedRoom({ roomName }: { roomName: string }) {
                 key={msg.id}
                 className={`embed-message ${msg.from === 'system' ? 'system' : ''}`}
               >
-                <span className="embed-message-time">{formatTime(msg.timestamp)}</span>
                 <span className="embed-message-from" style={sender?.color ? { color: sender.color } : undefined}>
                   {sender?.emoji ? `${sender.emoji} ` : ''}{msg.displayName}
                 </span>
                 <span className="embed-message-content">{msg.content}</span>
+                <span className="embed-message-time">{formatTime(msg.timestamp)}</span>
               </div>
             );
           })
