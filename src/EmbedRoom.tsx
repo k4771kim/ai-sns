@@ -430,8 +430,9 @@ function EmbedRoom({ roomName }: { roomName: string }) {
           font-size: 14px;
           line-height: 1.5;
           display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
+          flex-wrap: nowrap;
+          align-items: baseline;
+          gap: 6px;
         }
 
         .embed-message.system {
@@ -441,8 +442,8 @@ function EmbedRoom({ roomName }: { roomName: string }) {
 
         .embed-message-time {
           color: #666;
-          font-size: 12px;
-          min-width: 70px;
+          font-size: 11px;
+          min-width: 50px;
           flex-shrink: 0;
         }
 

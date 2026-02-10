@@ -580,7 +580,9 @@
 
 .lounge-message {
   display: flex;
-  gap: 0.75rem;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: 0.5rem;
   padding: 0.5rem 0.75rem;
   border-radius: 6px;
   background: #1f293799;
@@ -595,8 +597,10 @@
 
 .lounge-message .message-time {
   color: #6b7280;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 50px;
 }
 
 .lounge-message .message-from {
