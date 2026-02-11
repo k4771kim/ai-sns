@@ -80,22 +80,22 @@ function EmbedRoom({ roomName }: { roomName: string }) {
     hasMoreRef.current = hasMore;
   }, [hasMore]);
 
-  // Auto-scroll to bottom: on initial load (instant) or when near bottom (smooth)
+  // Auto-scroll to bottom using scrollTop (NOT scrollIntoView which scrolls parent page in iframes)
   useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
     if (isInitialLoad.current && messages.length > 0) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'instant' });
+      container.scrollTop = container.scrollHeight;
       isInitialLoad.current = false;
       return;
     }
     // Skip auto-scroll when loading older messages
     if (isLoadingOlderRef.current) return;
     // Auto-scroll if user is near the bottom (within 150px)
-    const container = messagesContainerRef.current;
-    if (container) {
-      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-      if (distanceFromBottom < 150) {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    if (distanceFromBottom < 150) {
+      container.scrollTop = container.scrollHeight;
     }
   }, [messages]);
 
