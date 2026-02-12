@@ -91,6 +91,7 @@ function QuizLounge() {
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
+  const connectRef = useRef<() => void>(() => {});
   const isInitialLoad = useRef(true);
   const prevScrollHeight = useRef(0);
   const isLoadingMoreRef = useRef(false);
@@ -330,7 +331,7 @@ function QuizLounge() {
       const delay = Math.min(3000 * Math.pow(2, attempt), 30000);
       reconnectAttemptRef.current = attempt + 1;
       reconnectTimeoutRef.current = setTimeout(() => {
-        connect();
+        connectRef.current();
       }, delay);
     };
 
@@ -339,6 +340,9 @@ function QuizLounge() {
       ws.close();
     };
   }, []);
+
+  // Keep ref in sync so onclose reconnect always uses latest connect
+  connectRef.current = connect;
 
   // Vote countdown timer
   useEffect(() => {
