@@ -1,4 +1,4 @@
-import { useState, useEffect, /* useLayoutEffect, */ useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 
 // Configuration - auto-detect production
 const isProduction = window.location.hostname !== 'localhost';
@@ -55,21 +55,21 @@ function EmbedRoom({ roomName }: { roomName: string }) {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [, setRoomInfo] = useState<Room | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [, /* setIsLoadingMore */] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  // const loadMoreRef = useRef<HTMLDivElement>(null); // [Infinite Scroll - commented out]
+  const loadMoreRef = useRef<HTMLDivElement>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
   const isInitialLoad = useRef(true);
-  // const prevScrollHeight = useRef(0); // [Infinite Scroll - commented out]
+  const prevScrollHeight = useRef(0);
   const isLoadingMoreRef = useRef(false);
   const hasMoreRef = useRef(true);
   const oldestMessageIdRef = useRef<string | null>(null);
-  // const isLoadingOlderRef = useRef(false); // [Infinite Scroll - commented out]
+  const isLoadingOlderRef = useRef(false);
 
   // Sync refs with state for stable IntersectionObserver callback
   useEffect(() => {
@@ -91,77 +91,76 @@ function EmbedRoom({ roomName }: { roomName: string }) {
     }
   }, [messages]);
 
-  // // [Infinite Scroll - commented out]
-  // // Maintain scroll position when loading older messages (useLayoutEffect prevents flash)
-  // useLayoutEffect(() => {
-  //   if (messagesContainerRef.current && prevScrollHeight.current > 0) {
-  //     const newScrollHeight = messagesContainerRef.current.scrollHeight;
-  //     const scrollDiff = newScrollHeight - prevScrollHeight.current;
-  //     messagesContainerRef.current.scrollTop += scrollDiff;
-  //     prevScrollHeight.current = 0;
-  //     isLoadingOlderRef.current = false;
-  //   }
-  // }, [messages]);
+  // Maintain scroll position when loading older messages (useLayoutEffect prevents flash)
+  useLayoutEffect(() => {
+    if (messagesContainerRef.current && prevScrollHeight.current > 0) {
+      const newScrollHeight = messagesContainerRef.current.scrollHeight;
+      const scrollDiff = newScrollHeight - prevScrollHeight.current;
+      messagesContainerRef.current.scrollTop += scrollDiff;
+      prevScrollHeight.current = 0;
+      isLoadingOlderRef.current = false;
+    }
+  }, [messages]);
 
-  // // Load more messages when scrolling to top (uses refs for stable callback)
-  // const loadMoreMessages = useCallback(async () => {
-  //   const curOldestId = oldestMessageIdRef.current;
-  //   if (isLoadingMoreRef.current || !hasMoreRef.current || !curOldestId) return;
-  //
-  //   setIsLoadingMore(true);
-  //   isLoadingMoreRef.current = true;
-  //   isLoadingOlderRef.current = true;
-  //   if (messagesContainerRef.current) {
-  //     prevScrollHeight.current = messagesContainerRef.current.scrollHeight;
-  //   }
-  //
-  //   try {
-  //     const response = await fetch(`${API_URL}/api/lounge/messages?before=${curOldestId}&limit=50&room=${roomName}`);
-  //     if (!response.ok) {
-  //       setHasMore(false);
-  //       hasMoreRef.current = false;
-  //       return;
-  //     }
-  //     const data = await response.json();
-  //
-  //     if (data.messages && data.messages.length > 0) {
-  //       setMessages(prev => {
-  //         const existingIds = new Set(prev.map(m => m.id));
-  //         const newMessages = data.messages.filter((m: ChatMessage) => !existingIds.has(m.id));
-  //         return [...newMessages, ...prev];
-  //       });
-  //       setHasMore(data.hasMore);
-  //       hasMoreRef.current = data.hasMore;
-  //     } else {
-  //       setHasMore(false);
-  //       hasMoreRef.current = false;
-  //     }
-  //   } catch (err) {
-  //     console.error('Failed to load more messages:', err);
-  //   } finally {
-  //     setIsLoadingMore(false);
-  //     isLoadingMoreRef.current = false;
-  //   }
-  // }, [roomName]);
+  // Load more messages when scrolling to top (uses refs for stable callback)
+  const loadMoreMessages = useCallback(async () => {
+    const curOldestId = oldestMessageIdRef.current;
+    if (isLoadingMoreRef.current || !hasMoreRef.current || !curOldestId) return;
 
-  // // IntersectionObserver for infinite scroll (root = scroll container)
-  // useEffect(() => {
-  //   const container = messagesContainerRef.current;
-  //   const sentinel = loadMoreRef.current;
-  //   if (!container || !sentinel) return;
-  //
-  //   const observer = new IntersectionObserver(
-  //     (entries) => {
-  //       if (entries[0].isIntersecting) {
-  //         loadMoreMessages();
-  //       }
-  //     },
-  //     { root: container, threshold: 0 }
-  //   );
-  //
-  //   observer.observe(sentinel);
-  //   return () => observer.disconnect();
-  // }, [loadMoreMessages]);
+    setIsLoadingMore(true);
+    isLoadingMoreRef.current = true;
+    isLoadingOlderRef.current = true;
+    if (messagesContainerRef.current) {
+      prevScrollHeight.current = messagesContainerRef.current.scrollHeight;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/lounge/messages?before=${curOldestId}&limit=50&room=${roomName}`);
+      if (!response.ok) {
+        setHasMore(false);
+        hasMoreRef.current = false;
+        return;
+      }
+      const data = await response.json();
+
+      if (data.messages && data.messages.length > 0) {
+        setMessages(prev => {
+          const existingIds = new Set(prev.map(m => m.id));
+          const newMessages = data.messages.filter((m: ChatMessage) => !existingIds.has(m.id));
+          return [...newMessages, ...prev];
+        });
+        setHasMore(data.hasMore);
+        hasMoreRef.current = data.hasMore;
+      } else {
+        setHasMore(false);
+        hasMoreRef.current = false;
+      }
+    } catch (err) {
+      console.error('Failed to load more messages:', err);
+    } finally {
+      setIsLoadingMore(false);
+      isLoadingMoreRef.current = false;
+    }
+  }, [roomName]);
+
+  // IntersectionObserver for infinite scroll (root = scroll container)
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    const sentinel = loadMoreRef.current;
+    if (!container || !sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMoreMessages();
+        }
+      },
+      { root: container, threshold: 0 }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadMoreMessages]);
 
   // WebSocket connection
   const connect = useCallback(() => {
@@ -496,13 +495,12 @@ function EmbedRoom({ roomName }: { roomName: string }) {
       `}</style>
 
       <div className="embed-messages" ref={messagesContainerRef}>
-        {/* [Infinite Scroll - commented out]
+        {/* Sentinel for loading more */}
         <div ref={loadMoreRef} className="embed-load-more-sentinel" style={!hasMore ? { minHeight: 0, height: 0 } : undefined}>
           {isLoadingMore && (
             <div className="embed-loading-spinner">Loading older messages...</div>
           )}
         </div>
-        */}
         {/* no-more-messages banner hidden in embed */}
         {messages.length === 0 ? (
           <p className="embed-empty">
