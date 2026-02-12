@@ -1280,6 +1280,7 @@ button.small {
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 0.85rem;
   overflow: hidden;
+  overscroll-behavior: contain;
 }
 
 .embed-header {
@@ -1304,6 +1305,7 @@ button.small {
 .embed-messages {
   flex: 1;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0.5rem;
   display: flex;
   flex-direction: column;

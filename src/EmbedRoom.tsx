@@ -69,7 +69,7 @@ function EmbedRoom({ roomName }: { roomName: string }) {
   const isLoadingMoreRef = useRef(false);
   const hasMoreRef = useRef(true);
   const oldestMessageIdRef = useRef<string | null>(null);
-  const isLoadingOlderRef = useRef(false);
+  // const isLoadingOlderRef = useRef(false); // [Infinite Scroll - commented out]
 
   // Sync refs with state for stable IntersectionObserver callback
   useEffect(() => {
@@ -80,22 +80,14 @@ function EmbedRoom({ roomName }: { roomName: string }) {
     hasMoreRef.current = hasMore;
   }, [hasMore]);
 
-  // Auto-scroll to bottom using scrollTop (NOT scrollIntoView which scrolls parent page in iframes)
+  // Auto-scroll ONLY on initial load — repeated scrollTop also causes parent page to jump in iframes
   useEffect(() => {
-    const container = messagesContainerRef.current;
-    if (!container) return;
-
     if (isInitialLoad.current && messages.length > 0) {
-      container.scrollTop = container.scrollHeight;
+      const container = messagesContainerRef.current;
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
       isInitialLoad.current = false;
-      return;
-    }
-    // Skip auto-scroll when loading older messages
-    if (isLoadingOlderRef.current) return;
-    // Auto-scroll if user is near the bottom (within 150px)
-    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-    if (distanceFromBottom < 150) {
-      container.scrollTop = container.scrollHeight;
     }
   }, [messages]);
 
